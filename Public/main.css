@@ -1,0 +1,11 @@
+.nav-svg {
+    fill: #FFFFFF; /* Light mode fill color */
+    /*stroke: #4A4A4A;*/
+}
+
+@media (prefers-color-scheme: dark) {
+    .nav-svg {
+      fill: #EEEEEE; /* Dark mode fill color */
+      /* stroke: #999999; */
+    }
+  }
