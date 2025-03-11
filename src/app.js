@@ -16,6 +16,7 @@ const errorHandlerMiddleware = require('./middleware/error-handler');
 
 
 app.use(express.json())
+app.use(express.urlencoded({ extended: true }));
 
 
 app.get('/', async (req, res) => {
@@ -23,7 +24,7 @@ app.get('/', async (req, res) => {
 })
 
 app.use('/api/v1/user/', userRoutes);
-//app.use('/api/admin', adminRoutes);
+app.use('/api/v1/admin/', adminRoutes);
 
 app.use(notFoundMiddleware);
 app.use(errorHandlerMiddleware);

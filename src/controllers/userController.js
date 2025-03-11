@@ -1,41 +1,60 @@
 require('dotenv').config();
 const { StatusCodes } = require('http-status-codes');
-const Joi = require('joi');
-const { BadRequestError, UnauthenticatedError } = require('../errors/index')
 const User = require('../models/User');
+const Account = require('../models/Account');
+const Transaction = require('../models/Transaction');
+const TransactionProcessor = require('../services/TransactionProcessor');
+const Joi = require('joi');
+const {
+    BadRequestError,
+    UnauthenticatedError,
+    NotFoundError,
+    ForbiddenError,
+    InternalServerError
+} = require('../outcomes/errors');
+const { TransactionError } = require('../outcomes/transactions');
 
 
 // User Auth Controllers
 const userRegister = async (req, res) => {
-    const requiredFields = [
-        "firstName",
-        "lastName",
-        "email",
-        "password",
-        "nationalId",
-        "gender",
-        "address",
-        "phoneNumber",
-        "dateOfBirth",
-      ];
+    const schema = Joi.object({
+        firstName: Joi.string().min(2).max(50).required(),
+        lastName: Joi.string().min(2).max(50).required(),
+        email: Joi.string().required(),
+        password: Joi.string().required(),
+        nationalId: Joi.string().min(14).max(14).required(),
+        gender: Joi.string().min(4).max(6).required(),
+        address: Joi.string().max(160).required(),
+        phoneNumber: Joi.string().required(),
+        dateOfBirth: Joi.string().required(),
+    })
 
-    const missingFields = requiredFields.filter(field => !req.body[field]);
-    
-    if ( missingFields.length > 0) {
-        throw new BadRequestError(`Missing required fields: ${missingFields.join(', ')}`);
+    const { error } = schema.validate({ ...req.body })
+    if (error) {
+        throw new BadRequestError(error.details[0].message);
     }
 
-    const user = await User.create({ ...req.body});
+    const user = await User.create({ ...req.body });
+    // Removing sensitive data from the user object
+    ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete user[field]);
     if (!user){
         throw new BadRequestError('Couldn\'t register user');
     }
-    res.status(200).send(user);
+
+    const token = await user.createUserJWT();
+    res.status(StatusCodes.CREATED).json({ fullName: user.fullName, token: token });
 }
 
 const userLogin = async (req, res) => {
     const { email, password } = req.body;
-    if (!email || !password) {
-        throw new BadRequestError('Both email and password fields are required');
+    const schema = Joi.object({
+        email: Joi.string().required(),
+        password: Joi.string().required()
+    })
+
+    const {error} = schema.validate({ ...req.body })
+    if (error) {
+        throw new BadRequestError(error.details[0].message);
     }
 
     const user = await User.findOne({ email }).select('+password');
@@ -44,28 +63,138 @@ const userLogin = async (req, res) => {
     }
 
     const isPasswordCorrect = await user.comparePasswords(password);
-    delete user.password; // Removes the password from the object
+    // Removing sensitive data from the user object
+    ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete user[field]);
     if (!isPasswordCorrect) {
         throw new UnauthenticatedError("Wrong email/password, access denied");
     }
 
-    const token = await user.createJWT();
+    const token = await user.createUserJWT();
     res.status(StatusCodes.OK).json({ fullName: user.fullName , token: token })
 }
 
-const userLogout = async (req, res) => {}
 
 // User Features Controllers
-const getBalance = async (req, res) => {}
+const getUserAccounts = async (req, res) => {
+    const userId = req.user.userId;
+    if (!userId) {
+        throw new ForbiddenError('Not allowed to access this resource');
+    }
+
+    const userAccounts = await Account.getAccountsByUserId(userId);
+    if (!userAccounts) {
+        throw new NotFoundError('No accounts found for this user');
+    }
+
+    const accountDetails = userAccounts.map(account => ({
+        accountNumber: account.accountNumber,
+        accountHolderId: account.accountHolderId,
+        accountType: account.accountType,
+        balance: account.balance,
+        status: account.status
+    }));
+
+    res.status(StatusCodes.OK).json({ accounts: accountDetails });
+}
+
+const getAccountBalance = async (req, res) => {
+    const { accountNumber } = req.params;
+    const { userId } = req.user;
+    if (!userId) {
+        throw new ForbiddenError('Not allowed to access this resource');
+    }
+
+    const schema = Joi.object({
+        accountNumber: Joi.string().required(),
+        userId: Joi.string().required()
+    });
+
+    const { error } = schema.validate({ accountNumber, userId });
+    if (error) {
+        throw new BadRequestError(error.details[0].message);
+    }
+
+    //const balance = await Account.checkAccountBalance( accountNumber, userId );
+    const balance = await Account.checkAccountBalance( accountNumber );
+    if (!balance) {
+        throw new NotFoundError('Account not found');
+    }
+
+    res.status(StatusCodes.OK).json({ balance: balance });
+}
+
+const createTransfer = async (req, res) => {
+    const { accountNumber, toAccount, amount, description } = req.body;
+    const userId = req.user.userId;
+    if (!userId) {
+        throw new ForbiddenError('Not allowed to access this resource');
+    }
+    
+    const schema = Joi.object({
+        userId: Joi.string().required(),
+        accountNumber: Joi.string().required(),
+        toAccount: Joi.string().required(),
+        amount: Joi.number().strict().required(),
+        description: Joi.string().max(20).optional()
+    })
+
+    const { error } = schema.validate({ userId, accountNumber, toAccount, amount, description });
+    if (error) {
+        throw new BadRequestError(error.details[0].message);
+    }
+    
+    const sourceAccount = await Account.checkAccountExists(accountNumber, userId);
+    const destinationAccount = await Account.checkAccountExists(toAccount);
+    if (!sourceAccount || !destinationAccount) {
+        throw new NotFoundError('Account not found');
+    }
+
+    const transaction = {
+        accountNumber: accountNumber,
+        transactionType: 'transfer',
+        amount: amount,
+        toAccount: toAccount,
+        description: description,
+    }
+
+    let result;
+    try {
+        const transactionProcessor = new TransactionProcessor();
+        result = await transactionProcessor.processTransaction(transaction);
+        console.log('Success: ', result);
+        transaction.status = result.status;
+        transaction.systemReason = result.systemMessage;
+    } catch (err) {
+        console.log('Transaction processing error: ', err);
+        transaction.status = 'failed';
+        transaction.systemReason = 'Unexpected Server error while processing transaction';
+        throw new InternalServerError('Something went wrong, while processing transaction');
+    }
+    
+    const createdTransfer = await Transaction.create(transaction);
+    if (!createdTransfer) {
+        throw new BadRequestError('Transfer failed');
+    }
+ 
+    if (transaction.status === 'failed') {
+        const clientMessage = result?.clientMessage || 'Transfer failed';
+        const systemMessage = result?.systemMessage || clientMessage;
+        throw new TransactionError(clientMessage, systemMessage);
+    }
+   
+    console.log('Transfer created successfully: ');
+    res.status(StatusCodes.CREATED).json({ message: 'Transfer created successfully' });
+
+}
+
 const getTransactionsHistory = async (req, res) => {}
-const createTransfer = async (req, res) => {}
 
 
 module.exports = { 
-    getBalance, 
+    getUserAccounts,
+    getAccountBalance, 
     getTransactionsHistory,
     createTransfer,
     userRegister,
-    userLogin,
-    userLogout
+    userLogin
 }

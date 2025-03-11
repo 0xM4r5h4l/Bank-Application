@@ -62,7 +62,7 @@ const UserSchema = mongoose.Schema({
     address: { 
         type: String,
         trim: true,
-        maxlength: 160 
+        maxlength: 160
     },
     phoneNumber: {
         type: String,
@@ -90,14 +90,9 @@ const UserSchema = mongoose.Schema({
                 const age = Math.abs(ageDate.getUTCFullYear() - 1970);
                 return age >= process.env.MINIMUM_USER_AGE;
             },
-            message: 'User must be at least 13 years old'
+            message: 'User is under the minimum age'
         }
     },
-    accounts: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Account',
-        select: false
-    }],
     security: {
         lastLogin: String,
         lastFailedLogin: String,
@@ -132,10 +127,12 @@ UserSchema.methods.comparePasswords = async function(reqPassword) {
     return await bcrypt.compare(reqPassword, this.password);
 }
 
-UserSchema.methods.createJWT = async function() {
+UserSchema.methods.createUserJWT = async function() {
     return jwt.sign({
         userId: this._id,
         fullName: this.fullName,
+        role: 'customer'
     }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_LIFETIME });
 }
+
 module.exports = mongoose.model('User', UserSchema);
