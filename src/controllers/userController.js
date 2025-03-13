@@ -13,6 +13,7 @@ const {
     InternalServerError
 } = require('../outcomes/errors');
 const { TransactionError } = require('../outcomes/transactions');
+const { logger } = require('../utils/logger');
 
 
 // User Auth Controllers
@@ -114,13 +115,12 @@ const getAccountBalance = async (req, res) => {
         throw new BadRequestError(error.details[0].message);
     }
 
-    //const balance = await Account.checkAccountBalance( accountNumber, userId );
-    const balance = await Account.checkAccountBalance( accountNumber );
+    const balance = await Account.findOne({ accountNumber, accountHolderId: userId }).select('balance');
     if (!balance) {
         throw new NotFoundError('Account not found');
     }
 
-    res.status(StatusCodes.OK).json({ balance: balance });
+    res.status(StatusCodes.OK).json({ balance: balance?.balance });
 }
 
 const createTransfer = async (req, res) => {
@@ -143,8 +143,9 @@ const createTransfer = async (req, res) => {
         throw new BadRequestError(error.details[0].message);
     }
     
-    const sourceAccount = await Account.checkAccountExists(accountNumber, userId);
-    const destinationAccount = await Account.checkAccountExists(toAccount);
+    // Checking Logic
+    const sourceAccount = await Account.findOne({ accountNumber: accountNumber, accountHolderId: userId }).select('accountNumber');
+    const destinationAccount = await Account.findOne({ accountNumber: toAccount }).select('accountNumber');
     if (!sourceAccount || !destinationAccount) {
         throw new NotFoundError('Account not found');
     }
@@ -157,6 +158,7 @@ const createTransfer = async (req, res) => {
         description: description,
     }
 
+    // Starting transaction processor & handler
     let result;
     try {
         const transactionProcessor = new TransactionProcessor();
@@ -171,9 +173,14 @@ const createTransfer = async (req, res) => {
         throw new InternalServerError('Something went wrong, while processing transaction');
     }
     
+    // Inserting transfer details in DB
     const createdTransfer = await Transaction.create(transaction);
     if (!createdTransfer) {
-        throw new BadRequestError('Transfer failed');
+        // Report unsuccessful transaction insert to DB
+        logger.error({
+            message: 'DB_TRANSACTION_INSERT_ERROR',
+            transaction: transaction
+        })
     }
  
     if (transaction.status === 'failed') {

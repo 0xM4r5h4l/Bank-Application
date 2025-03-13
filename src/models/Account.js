@@ -57,7 +57,7 @@ AccountSchema.statics.checkAccountExists = async function(accountNumber) {
 }
 
 AccountSchema.statics.checkAccountBalance = async function(accountNumber) {
-    const account = await this.findOne({ accountNumber }).select('balance');
+    const account = await this.findOne({ accountNumber: accountNumber }).select('balance');
     if (!account) {
         return null;
     }

@@ -7,7 +7,7 @@ transports.push(
         filename: './logs/app-errors.log',
         level: 'error'
     }),
-    new winston.transport.File({
+    new winston.transports.File({
         filename: './logs/client-errors.log',
         level: 'warn'
     })
