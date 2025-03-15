@@ -3,7 +3,7 @@ const { StatusCodes } = require('http-status-codes');
 const User = require('../models/User');
 const Account = require('../models/Account');
 const Transaction = require('../models/Transaction');
-const TransactionProcessor = require('../services/TransactionProcessor');
+const TransactionService = require('../services/TransactionService');
 const Joi = require('joi');
 const {
     BadRequestError,
@@ -161,8 +161,8 @@ const createTransfer = async (req, res) => {
     // Starting transaction processor & handler
     let result;
     try {
-        const transactionProcessor = new TransactionProcessor();
-        result = await transactionProcessor.processTransaction(transaction);
+        const transactionService = new TransactionService();
+        result = await transactionService.processTransaction(transaction);
         console.log('Success: ', result);
         transaction.status = result.status;
         transaction.systemReason = result.systemMessage;

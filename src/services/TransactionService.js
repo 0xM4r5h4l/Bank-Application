@@ -1,12 +1,9 @@
 const securityLogger = require('../utils/securityLogger');
 const Account = require('../models/Account');
-const TransactionHandler = require('./TransferHandler');
 
-class TransactionProcessor {
-    constructor(transferHandler = new TransactionHandler) {
-        this.transferHandler = transferHandler;
-    }
+const { MAXIMUM_ACCOUNT_BALANCE } = process.env;
 
+class TransactionService {
     async processTransaction(transaction) {
         try {
             // Logs the transaction processing
@@ -15,7 +12,7 @@ class TransactionProcessor {
             // Validate the transaction
             const { clientMessage, systemMessage, status } = await this.#validateTransaction(transaction);
             if ( status === true ) {
-                await this.transferHandler.handleTransfer(transaction);
+                await this.#handleTransaction(transaction);
 
                 // Log the transaction success
                 this.#logTransactionSuccess(transaction);
@@ -30,6 +27,45 @@ class TransactionProcessor {
             this.#logTransactionFailed(error.message || 'Error while processing transaction', transaction);
             error.message = error.message || 'System error while processing transaction';
             throw error;
+        }
+    }
+
+    async #handleTransaction(transaction) {
+        // Transfer logic
+        try {
+            if( transaction.transactionType === 'transfer' ) {
+                const sourceAccountWithdrawal = await Account.accountWithdraw(transaction.accountNumber, transaction.amount);
+                if (!sourceAccountWithdrawal) {
+                    throw new Error('Error withdrawing from source account');
+                }
+                const destinationAccountDeposit = await Account.accountDeposit(transaction.toAccount, transaction.amount);
+                if (!destinationAccountDeposit) {
+                    throw new Error('Error depositing to destination account');
+                }
+                if (sourceAccountWithdrawal && !destinationAccountDeposit) {
+                    const sourceAccountDeposit = await Account.accountDeposit(transaction.accountNumber, transaction.amount);
+                    if (!sourceAccountDeposit) {
+                        throw new Error('Transfer failed but couldn\'t deposit back to source account');
+                    }
+                }
+                if (sourceAccountWithdrawal && destinationAccountDeposit) {
+                    return true;
+                }
+            }
+            if( transaction.transactionType === 'withdrawal' ) {
+                const sourceAccountWithdrawal = await Account.accountWithdraw(transaction.accountNumber, transaction.amount);
+                if (!sourceAccountWithdrawal) {
+                    throw new Error('Error withdrawing from source account');
+                }
+            }
+            if( transaction.transactionType === 'deposit' ) {
+                const sourceAccountWithdrawal = await Account.accountDeposit(transaction.accountNumber, transaction.amount);
+                if (!sourceAccountWithdrawal) {
+                    throw new Error('Error withdrawing from source account');
+                }
+            }
+        } catch (error) {
+            throw new Error('Error handling transfer: ' + error.message);
         }
     }
 
@@ -55,7 +91,7 @@ class TransactionProcessor {
                 // and the destination account can receive the amount
                 if(destinationAccountBalance === null) {
                     return { clientMessage: 'Invalid transaction data, transaction rejected', systemMessage: 'Invalid transaction data(toAccount)', status: false };
-                } else if ((destinationAccountBalance + transaction.amount) > process.env.MAXIMUM_ACCOUNT_BALANCE) {
+                } else if ((destinationAccountBalance + transaction.amount) > MAXIMUM_ACCOUNT_BALANCE) {
                     return { clientMessage: 'Transaction not allowed', systemMessage: 'Destination account balance can\'t exceed the maximum allowed balance', status: false };
                 }
             }
@@ -67,7 +103,7 @@ class TransactionProcessor {
             }
 
             if(transaction.transactionType ===  'deposit'){
-                if ((sourceAccountBalance + transaction.amount) > process.env.MAXIMUM_ACCOUNT_BALANCE) {
+                if ((sourceAccountBalance + transaction.amount) > MAXIMUM_ACCOUNT_BALANCE) {
                     return { clientMessage: 'Your account balance has reached the maximum limit, transaction rejected', systemMessage: 'Account balance can\'t exceed the maximum allowed balance', status: false };
                 }
             }
@@ -94,7 +130,6 @@ class TransactionProcessor {
     }
 
     #logTransactionSuccess(transaction) {
-        // Dont forget to put rest of the data to log
         securityLogger.info({
             message: `SUCCESSFUL_TRANSACTION`,
             transactionId: transaction._id,
@@ -108,7 +143,6 @@ class TransactionProcessor {
     }
 
     #logTransactionFailed(reason, transaction) {
-        // Dont forget to put rest of the data to log
         securityLogger.info({
             message: `FAILED_TRANSACTION`,
             reason: reason || 'Unknown',
@@ -123,4 +157,4 @@ class TransactionProcessor {
     }
 }
 
-module.exports = TransactionProcessor;
+module.exports = TransactionService;
