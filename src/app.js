@@ -11,13 +11,14 @@ const adminRoutes = require('./routes/adminRoutes');
 // Database Connection
 const connectDB = require('./db/connect');
 
+const requestIp = require('request-ip');
 const notFoundMiddleware = require('./middleware/not-found');
 const errorHandlerMiddleware = require('./middleware/error-handler');
 
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
-
+app.use(requestIp.mw());
 
 app.get('/', async (req, res) => {
     res.status(200).json({status: "UP", name: 'United Bank'});

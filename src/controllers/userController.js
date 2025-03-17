@@ -9,7 +9,6 @@ const {
     BadRequestError,
     UnauthenticatedError,
     NotFoundError,
-    ForbiddenError,
     InternalServerError
 } = require('../outcomes/errors');
 const { TransactionError } = require('../outcomes/transactions');
@@ -60,14 +59,14 @@ const userLogin = async (req, res) => {
 
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
-        throw new UnauthenticatedError("Wrong email/password, access denied");
+        throw new UnauthenticatedError("Invalid authentication credentials provided.");
     }
 
     const isPasswordCorrect = await user.comparePasswords(password);
     // Removing sensitive data from the user object
     ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete user[field]);
     if (!isPasswordCorrect) {
-        throw new UnauthenticatedError("Wrong email/password, access denied");
+        throw new UnauthenticatedError("Invalid authentication credentials provided.");
     }
 
     const token = await user.createUserJWT();
@@ -79,7 +78,7 @@ const userLogin = async (req, res) => {
 const getUserAccounts = async (req, res) => {
     const userId = req.user.userId;
     if (!userId) {
-        throw new ForbiddenError('Not allowed to access this resource');
+        throw new UnauthenticatedError('Authentication required, Access denied.');
     }
 
     const userAccounts = await Account.getAccountsByUserId(userId);
@@ -102,7 +101,7 @@ const getAccountBalance = async (req, res) => {
     const { accountNumber } = req.params;
     const { userId } = req.user;
     if (!userId) {
-        throw new ForbiddenError('Not allowed to access this resource');
+        throw new UnauthenticatedError('Authentication required, Access denied.');;
     }
 
     const schema = Joi.object({
@@ -127,7 +126,7 @@ const createTransfer = async (req, res) => {
     const { accountNumber, toAccount, amount, description } = req.body;
     const userId = req.user.userId;
     if (!userId) {
-        throw new ForbiddenError('Not allowed to access this resource');
+        throw new UnauthenticatedError('Authentication required, Access denied.');;
     }
     
     const schema = Joi.object({

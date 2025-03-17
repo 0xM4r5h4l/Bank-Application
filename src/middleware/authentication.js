@@ -13,7 +13,7 @@ const authentication = async (req, res, next) => {
         req.user = {userId: payload.userId, fullName: payload.fullName, role: payload.role};
         next();
     } catch(error){
-        throw new UnauthenticatedError('Invalid Token');
+        throw new UnauthenticatedError('Invalid authentication credentials provided.');
     }
 }
 

@@ -99,7 +99,7 @@ const UserSchema = mongoose.Schema({
         loginAttempts: { type: Number, default: 0, select: false },
         status: {
             type: String,
-            enum: ['pending', 'active', 'suspended','locked'],
+            enum: ['pending', 'active', 'suspended', 'locked'],
             default: 'pending',
         },
         lockedUntil: { type: Date, select: false},
