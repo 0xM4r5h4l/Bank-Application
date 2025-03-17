@@ -13,7 +13,7 @@ const {
     InternalServerError
 } = require('../outcomes/errors');
 const { TransactionError } = require('../outcomes/transactions');
-const { logger } = require('../utils/logger');
+const logger = require('../utils/logger');
 
 
 // User Auth Controllers

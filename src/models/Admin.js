@@ -1,13 +1,16 @@
 const mongoose = require('mongoose');
 const validator = require('validator')
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 const AdminSchema = new mongoose.Schema({
-    username: {
+    employeeId: {
         type: String,
-        required: [true, 'Username is required'],
+        required: [true, 'Employee ID is required'],
         unique: true,
-        trim: true
+        trim: true,
+        match: [/^[A-Z0-9]{16}$/ ,' Employee ID must be 10 alphanumeric characters' ],
+        index: true
     },
     password: {
         type: String,
@@ -26,11 +29,17 @@ const AdminSchema = new mongoose.Schema({
             validator: validator.isEmail,
             message: 'Invalid email format'
         },
+        index: true
     },
+    lastLogin: { type: Date },
+    lastLoginIp: { type: String },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
     role: {
         type: String,
         enum: ['admin', 'superadmin'],
-        default: 'admin'
+        default: 'admin',
+        required: true
     }
 }, {
     timestamps: true
@@ -54,10 +63,14 @@ AdminSchema.methods.comparePassword = function(password) {
     return bcrypt.compare(password, this.password);
 };
 
+
+// TODO: Create updateAdmin method (requires: superadmin role) updateAdmin(){}
+
+
 AdminSchema.methods.createAdminJWT = async function() {
+    this.lastLogin = Date.now;
     return jwt.sign({
         userId: this._id,
-        fullName: this.fullName,
         role: this.role,
     }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_LIFETIME });
 };

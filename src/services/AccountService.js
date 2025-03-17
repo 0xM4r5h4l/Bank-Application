@@ -1,13 +1,13 @@
 const { randomInt } = require('crypto');
 const Account = require('../models/Account');
-const logger = require('../utils/logger');
+const logger  = require('../utils/logger');
 
 const MAX_RETRIES = 5;
 const PREFIXES = ['913', '712', '511', '310', '109'];
 const { ACCOUNT_NUMBER_LENGTH } = process.env;
 
 class AccountService {
-    static async generateAccount(data) {
+    static async createAccount(data) {
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             data = {
                 accountNumber: this.#generateAccountNumber(),

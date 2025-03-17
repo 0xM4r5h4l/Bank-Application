@@ -1,4 +1,4 @@
-const securityLogger = require('../utils/securityLogger');
+const securityLogger  = require('../utils/securityLogger');
 const Account = require('../models/Account');
 
 const { MAXIMUM_ACCOUNT_BALANCE } = process.env;
