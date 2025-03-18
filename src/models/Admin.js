@@ -63,13 +63,13 @@ AdminSchema.methods.comparePasswords = async function(reqPassword) {
     return await bcrypt.compare(reqPassword, this.password);
 };
 
-
 // TODO: Create updateAdmin method (requires: superadmin role) updateAdmin() {}
 
 
 AdminSchema.methods.createAdminJWT = async function(clientIp) {
-    this.lastLogin = Date.now;
+    this.lastLogin = new Date();
     this.lastLoginIp = clientIp || 'Unknown';
+    await this.save();
     return jwt.sign({
         userId: this._id,
         fullName: 'Unknown',
