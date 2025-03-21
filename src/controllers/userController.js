@@ -22,10 +22,10 @@ const userRegister = async (req, res) => {
         lastName: Joi.string().min(2).max(50).required(),
         email: Joi.string().required(),
         password: Joi.string().required(),
-        nationalId: Joi.string().min(14).max(14).required(),
+        nationalId: Joi.string().length(14).required(),
         gender: Joi.string().min(4).max(6).required(),
-        address: Joi.string().max(160).required(),
-        phoneNumber: Joi.string().required(),
+        address: Joi.string().min(5).max(160).required(),
+        phoneNumber: Joi.string().length(10).required(),
         dateOfBirth: Joi.string().required(),
     })
 
@@ -35,11 +35,11 @@ const userRegister = async (req, res) => {
     }
 
     const user = await User.create({ ...req.body });
-    // Removing sensitive data from the user object
-    ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete user[field]);
     if (!user){
         throw new BadRequestError('Couldn\'t register user');
     }
+    // Removing sensitive data from the user object
+    ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete user[field]);
 
     const token = await user.createUserJWT();
     res.status(StatusCodes.CREATED).json({ fullName: user.fullName, token: token });
@@ -52,7 +52,7 @@ const userLogin = async (req, res) => {
         password: Joi.string().required()
     })
 
-    const {error} = schema.validate({ ...req.body })
+    const {error} = schema.validate({ ...req.body });
     if (error) {
         throw new BadRequestError(error.details[0].message);
     }
