@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
-const { MAXIMUM_ACCOUNT_BALANCE } = process.env;
+
+const { db: config } = require('../config');
 
 const AccountSchema = new mongoose.Schema({
     accountNumber: {
@@ -7,6 +8,12 @@ const AccountSchema = new mongoose.Schema({
         required: [true, 'accountNumber is required'],
         unique: true,
         trim: true,
+        validate: {
+            validator: function(v) {
+                return v.length == config.account.ACCOUNT_NUMBER_LENGTH;
+            },
+            message: `accountNumber length must be ${config.account.ACCOUNT_NUMBER_LENGTH}`
+        },
         index: true
     },
     accountHolderId: {
@@ -17,7 +24,7 @@ const AccountSchema = new mongoose.Schema({
     accountType: {
         type: String,
         enum: { 
-            values: ['Savings', 'Checking'],
+            values: config.account.ACCOUNT_TYPES,
             message: '{VALUE} is not a valid account type',
         },
         required: [true, 'accountType is required']
@@ -26,12 +33,12 @@ const AccountSchema = new mongoose.Schema({
         type: Number,
         required: [true, 'balance is required'],
         min: [0, 'Balance is below the minimum allowed value'],
-        max: [process.env.MAXIMUM_ACCOUNT_BALANCE, 'Balance exceeds the maximum allowed value']
+        max: [config.account.MAXIMUM_ACCOUNT_BALANCE, 'Balance exceeds the maximum allowed value']
     },
     status: {
         type: String,
-        enum: ['Active', 'Inactive', 'Closed'],
-        default: 'Active'
+        enum: config.account.ACCOUNT_STATUS,
+        default: config.account.DEFAULT_ACCOUNT_STATUS
     }
 }, {
     timestamps: true
@@ -64,14 +71,14 @@ AccountSchema.statics.checkAccountBalance = async function(accountNumber) {
     return balance;
 }
 
-AccountSchema.statics.accountWithdraw = async function(accountNumber, amount, session = null) {
+AccountSchema.statics.accountWithdraw = async function(accountNumber, amount) {
     const result = await this.findOneAndUpdate(
         {
             accountNumber,
             balance: { $gte: amount }, // Ensure sufficient balance
         },
         { $inc: { balance: -amount } },
-        { new: true, session }
+        { new: true }
     );
 
     if (!result) {
@@ -81,14 +88,14 @@ AccountSchema.statics.accountWithdraw = async function(accountNumber, amount, se
     return result;
 }
 
-AccountSchema.statics.accountDeposit = async function(accountNumber, amount, session = null) {
+AccountSchema.statics.accountDeposit = async function(accountNumber, amount) {
     const result = await this.findOneAndUpdate(
         {
             accountNumber,
-            balance: { $lte: MAXIMUM_ACCOUNT_BALANCE - amount },
+            balance: { $lte: config.account.MAXIMUM_ACCOUNT_BALANCE - amount },
         },
         { $inc: { balance: amount } },
-        { new: true , session } // Pass session for transactions
+        { new: true }
     );
     
     if (!result) {

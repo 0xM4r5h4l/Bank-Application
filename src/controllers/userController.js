@@ -4,87 +4,78 @@ const User = require('../models/User');
 const Account = require('../models/Account');
 const Transaction = require('../models/Transaction');
 const TransactionService = require('../services/TransactionService');
-const Joi = require('joi');
+const { TransactionError } = require('../outcomes/transactions');
+const logger = require('../utils/logger');
+const {
+    userRegisterSchema,
+    userLoginSchema,
+    getAccountBalanceSchema,
+    createTransferSchema
+} = require('../validations/userValidations');
+
 const {
     BadRequestError,
     UnauthenticatedError,
     NotFoundError,
     InternalServerError
 } = require('../outcomes/errors');
-const { TransactionError } = require('../outcomes/transactions');
-const logger = require('../utils/logger');
 
 
 // User Auth Controllers
 const userRegister = async (req, res) => {
-    const schema = Joi.object({
-        firstName: Joi.string().min(2).max(50).required(),
-        lastName: Joi.string().min(2).max(50).required(),
-        email: Joi.string().required(),
-        password: Joi.string().required(),
-        nationalId: Joi.string().length(14).required(),
-        gender: Joi.string().min(4).max(6).required(),
-        address: Joi.string().min(5).max(160).required(),
-        phoneNumber: Joi.string().length(10).required(),
-        dateOfBirth: Joi.string().required(),
-    })
+    const { error } = userRegisterSchema.validate({ ...req.body })
+    if (error) throw new BadRequestError(error.details[0].message);
 
-    const { error } = schema.validate({ ...req.body })
-    if (error) {
-        throw new BadRequestError(error.details[0].message);
-    }
+    const {
+        error: err,
+        duplicate
+    } = await User.checkDuplicates({
+        email: req.body.email,
+        nationalId: req.body.nationalId,
+        phoneNumber: req.body.phoneNumber
+    });
+    
+    if (err) throw new InternalServerError('Error while checking duplicate');
+    if (duplicate) throw new BadRequestError(`User with the same '${duplicate}' already exists`);
 
     const user = await User.create({ ...req.body });
-    if (!user){
-        throw new BadRequestError('Couldn\'t register user');
-    }
+    if (!user) throw new BadRequestError('Couldn\'t register user');
+
+    const userObject = user.toObject();
     // Removing sensitive data from the user object
-    ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete user[field]);
+    ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete userObject[field]);
 
     const token = await user.createUserJWT();
-    res.status(StatusCodes.CREATED).json({ fullName: user.fullName, token: token });
+    res.status(StatusCodes.CREATED).json({ firstName: userObject.firstName, token: token });
 }
 
 const userLogin = async (req, res) => {
     const { email, password } = req.body;
-    const schema = Joi.object({
-        email: Joi.string().required(),
-        password: Joi.string().required()
-    })
 
-    const {error} = schema.validate({ ...req.body });
-    if (error) {
-        throw new BadRequestError(error.details[0].message);
-    }
+    const { error } = userLoginSchema.validate({ ...req.body });
+    if (error) throw new BadRequestError(error.details[0].message);
 
     const user = await User.findOne({ email }).select('+password');
-    if (!user) {
-        throw new UnauthenticatedError("Invalid authentication credentials provided.");
-    }
+    if (!user) throw new UnauthenticatedError("Invalid email or password.");
 
     const isPasswordCorrect = await user.comparePasswords(password);
+    if (!isPasswordCorrect) throw new UnauthenticatedError("Invalid email or password.");
+
+    const userObject = user.toObject();
     // Removing sensitive data from the user object
-    ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete user[field]);
-    if (!isPasswordCorrect) {
-        throw new UnauthenticatedError("Invalid authentication credentials provided.");
-    }
+    ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete userObject[field]);
 
     const token = await user.createUserJWT();
-    res.status(StatusCodes.OK).json({ fullName: user.fullName , token: token })
+    res.status(StatusCodes.OK).json({ firstName: userObject.firstName , token: token })
 }
-
 
 // User Features Controllers
 const getUserAccounts = async (req, res) => {
-    const userId = req.user.userId;
-    if (!userId) {
-        throw new UnauthenticatedError('Authentication required, Access denied.');
-    }
+    const userId = req?.user?.userId;
+    if (!userId) throw new UnauthenticatedError('Authentication required, Access denied.');
 
     const userAccounts = await Account.getAccountsByUserId(userId);
-    if (!userAccounts) {
-        throw new NotFoundError('No accounts found for this user');
-    }
+    if (!userAccounts) throw new NotFoundError('No accounts found for this user');
 
     const accountDetails = userAccounts.map(account => ({
         accountNumber: account.accountNumber,
@@ -98,57 +89,34 @@ const getUserAccounts = async (req, res) => {
 }
 
 const getAccountBalance = async (req, res) => {
-    const { accountNumber } = req.params;
-    const { userId } = req.user;
-    if (!userId) {
-        throw new UnauthenticatedError('Authentication required, Access denied.');;
-    }
+    const { accountNumber } = req?.params;
+    const userId  = req?.user?.userId;
+    if (!userId) throw new UnauthenticatedError('Authentication required, Access denied.');
 
-    const schema = Joi.object({
-        accountNumber: Joi.string().required(),
-        userId: Joi.string().required()
-    });
-
-    const { error } = schema.validate({ accountNumber, userId });
-    if (error) {
-        throw new BadRequestError(error.details[0].message);
-    }
+    const { error } = getAccountBalanceSchema.validate({ accountNumber });
+    if (error) throw new BadRequestError(error.details[0].message);
 
     const balance = await Account.findOne({ accountNumber, accountHolderId: userId }).select('balance');
-    if (!balance) {
-        throw new NotFoundError('Account not found');
-    }
+    if (!balance) throw new NotFoundError('Account not found');
 
     res.status(StatusCodes.OK).json({ balance: balance?.balance });
 }
 
 const createTransfer = async (req, res) => {
     const { accountNumber, toAccount, amount, description } = req.body;
-    const userId = req.user.userId;
-    if (!userId) {
-        throw new UnauthenticatedError('Authentication required, Access denied.');;
-    }
-    
-    const schema = Joi.object({
-        userId: Joi.string().required(),
-        accountNumber: Joi.string().required(),
-        toAccount: Joi.string().required(),
-        amount: Joi.number().strict().required(),
-        description: Joi.string().max(20).optional()
-    })
+    const userId = req?.user?.userId;
+    if (!userId) throw new UnauthenticatedError('Authentication required, Access denied.');
 
-    const { error } = schema.validate({ userId, accountNumber, toAccount, amount, description });
-    if (error) {
-        throw new BadRequestError(error.details[0].message);
-    }
+    const { error } = createTransferSchema.validate({ accountNumber, toAccount, amount, description });
+    if (error) throw new BadRequestError(error.details[0].message);
     
+    if (accountNumber === toAccount) throw new BadRequestError('Cannot transfer to the same account.');
+
     // Checking Logic
     const sourceAccount = await Account.findOne({ accountNumber: accountNumber, accountHolderId: userId }).select('accountNumber');
     const destinationAccount = await Account.findOne({ accountNumber: toAccount }).select('accountNumber');
-    if (!sourceAccount || !destinationAccount) {
-        throw new NotFoundError('Account not found');
-    }
-
+    if (!sourceAccount || !destinationAccount) throw new NotFoundError('Account not found');
+    
     const transaction = {
         accountNumber: accountNumber,
         transactionType: 'transfer',
@@ -162,11 +130,9 @@ const createTransfer = async (req, res) => {
     try {
         const transactionService = new TransactionService();
         result = await transactionService.processTransaction(transaction);
-        console.log('Success: ', result);
         transaction.status = result.status;
         transaction.systemReason = result.systemMessage;
     } catch (err) {
-        console.log('Transaction processing error: ', err);
         transaction.status = 'failed';
         transaction.systemReason = 'Unexpected Server error while processing transaction';
         throw new InternalServerError('Something went wrong, while processing transaction');
@@ -179,7 +145,8 @@ const createTransfer = async (req, res) => {
         logger.error({
             message: 'DB_TRANSACTION_INSERT_ERROR',
             transaction: transaction
-        })
+        });
+        throw new InternalServerError('Failed to record transaction');
     }
  
     if (transaction.status === 'failed') {
@@ -188,9 +155,7 @@ const createTransfer = async (req, res) => {
         throw new TransactionError(clientMessage, systemMessage);
     }
    
-    console.log('Transfer created successfully: ');
     res.status(StatusCodes.CREATED).json({ message: 'Transfer created successfully' });
-
 }
 
 const getTransactionsHistory = async (req, res) => {}

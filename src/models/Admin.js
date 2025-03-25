@@ -3,20 +3,22 @@ const validator = require('validator')
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+const { db: config } = require('../config');
+
 const AdminSchema = new mongoose.Schema({
     employeeId: {
         type: String,
         required: [true, 'Employee ID is required'],
         unique: true,
         trim: true,
-        match: [/^[A-Z0-9]{16}$/ ,' Employee ID must be 10 alphanumeric characters' ],
+        match: [config.admin.EMPLOYEE_ID_REGEX , `Employee ID length must be ${config.admin.EMPLOYEE_ID_LENGTH}`],
         index: true
     },
     password: {
         type: String,
         required: [true, 'Password is required'],
-        minlength: 12,
-        maxlength: 128,
+        minlength: config.admin.ADMIN_MIN_PASSWORD,
+        maxlength: config.admin.ADMIN_MAX_PASSWORD,
         trim: true,
         select: false
     },
@@ -37,7 +39,7 @@ const AdminSchema = new mongoose.Schema({
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
     role: {
         type: String,
-        enum: ['admin', 'superadmin'],
+        enum: config.admin.ADMIN_ROLES,
         default: 'admin',
         required: true
     }

@@ -3,6 +3,8 @@ const validator = require('validator');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+const { db: config } = require('../config');
+
 const UserSchema = mongoose.Schema({
     firstName: {
         type: String,
@@ -33,8 +35,8 @@ const UserSchema = mongoose.Schema({
     password: {
         type: String,
         required: [true, 'Password is required'],
-        minlength: 12,
-        maxlength: 128,
+        minlength: config.user.USER_MIN_PASSWORD,
+        maxlength: config.user.USER_MAX_PASSWORD,
         trim: true,
         select: false
     },
@@ -50,23 +52,31 @@ const UserSchema = mongoose.Schema({
         },
         select: false
     },
-    gender : {
+    gender: {
         type: String,
         required: [true, 'Gender is required'],
         enum: {
-            values: ['male', 'female'],
+            values: config.user.USER_GENDERS,
             message: '{VALUE} is not a valid gender'
         },
         
     },
     address: { 
         type: String,
+        required: [true, 'Address is required'],
+        trim: true,
+        maxlength: 160
+    },
+    secondAddress: {
+        type: String,
+        required: false,
         trim: true,
         maxlength: 160
     },
     phoneNumber: {
         type: String,
         required: [true, 'Phone number is required'],
+        unique: true,
         validate: {
             validator: function(v) {
                 return validator.isMobilePhone(v, 'ar-EG', {strictMode: true});
@@ -88,7 +98,7 @@ const UserSchema = mongoose.Schema({
                 const ageDiffMs = Date.now() - birthDate.getTime();
                 const ageDate = new Date(ageDiffMs);
                 const age = Math.abs(ageDate.getUTCFullYear() - 1970);
-                return age >= process.env.MINIMUM_USER_AGE;
+                return age >= config.user.MINIMUM_USER_AGE;
             },
             message: 'User is under the minimum age'
         }
@@ -99,13 +109,12 @@ const UserSchema = mongoose.Schema({
         loginAttempts: { type: Number, default: 0, select: false },
         status: {
             type: String,
-            enum: ['pending', 'active', 'suspended', 'locked'],
+            enum: config.user.USER_SECURITY_STATUSES,
             default: 'pending',
         },
-        lockedUntil: { type: Date, select: false},
+        lockedUntil: { type: Date, select: false },
     },
 
-    
 }, {
     timestamps: true
 });
@@ -118,19 +127,35 @@ UserSchema.pre('save', async function(next) {
     next();
 })
 
-// Virtual to create fullName
-UserSchema.virtual('fullName').get(function() {
-    return `${this.firstName} ${this.lastName}`;
-})
-
 UserSchema.methods.comparePasswords = async function(reqPassword) {
     return await bcrypt.compare(reqPassword, this.password);
+}
+
+UserSchema.statics.checkDuplicates = async function(userData) {
+    if (!userData) throw new Error('checkDuplicates: User data is required');
+
+    if (userData.email) {
+        const duplicateEmail = await this.findOne({ email: userData.email });
+        if (duplicateEmail) return { error: null, duplicate: 'duplicateEmail' };
+    }
+
+    if (userData.nationalId) {
+        const duplicateNationalId = await this.findOne({ nationalId: userData.nationalId });
+        if (duplicateNationalId) return { error: null, duplicate: 'nationalId' };
+    }
+
+    if (userData.phoneNumber) {
+        const duplicatePhoneNumber = await this.findOne({ phoneNumber: userData.phoneNumber });
+        if (duplicatePhoneNumber) return { error: null, duplicate: 'phoneNumber' };
+    }
+
+    return { error: null, duplicate: null };
 }
 
 UserSchema.methods.createUserJWT = async function() {
     return jwt.sign({
         userId: this._id,
-        fullName: this.fullName,
+        fullName: `${this.firstName} ${this.lastName}`,
         role: 'customer'
     }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_LIFETIME });
 }

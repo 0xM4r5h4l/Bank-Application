@@ -7,7 +7,7 @@ class TransactionService {
     async processTransaction(transaction) {
         try {
             // Logs the transaction processing
-            this.#logTransactionProcessing(transaction);
+            await this.#logTransactionProcessing(transaction);
 
             // Validate the transaction
             const { clientMessage, systemMessage, status } = await this.#validateTransaction(transaction);
@@ -15,16 +15,16 @@ class TransactionService {
                 await this.#handleTransaction(transaction);
 
                 // Log the transaction success
-                this.#logTransactionSuccess(transaction);
+                await this.#logTransactionSuccess(transaction);
                 return { clientMessage: clientMessage, systemMessage: systemMessage, status: 'completed' };
             } else {
-                this.#logTransactionFailed(systemMessage, transaction);
+                await this.#logTransactionFailed(systemMessage, transaction);
                 return { clientMessage: clientMessage, systemMessage: systemMessage, status: 'failed' };
             }
 
         } catch (error) {
             // Log the transaction failure
-            this.#logTransactionFailed(error.message || 'Error while processing transaction', transaction);
+            await this.#logTransactionFailed(error.message || 'Error while processing transaction', transaction);
             error.message = error.message || 'System error while processing transaction';
             throw error;
         }
@@ -110,12 +110,11 @@ class TransactionService {
 
             return { clientMessage: 'Transaction successful', systemMessage: 'Transaction Success', status: true };
         } catch (error) {
-            console.log('ERROR (82): ', error);
             return { clientMessage: 'Something went wrong while processing your transaction', systemMessage: `Error: ${error.message || 'Unknown error'}`, status: false };
         }
     }
 
-    #logTransactionProcessing(transaction) {
+    async #logTransactionProcessing(transaction) {
         // Dont forget to put rest of the data to log
         securityLogger.info({
             message: `PROCESSING_TRANSACTION`,
@@ -129,7 +128,7 @@ class TransactionService {
         });
     }
 
-    #logTransactionSuccess(transaction) {
+    async #logTransactionSuccess(transaction) {
         securityLogger.info({
             message: `SUCCESSFUL_TRANSACTION`,
             transactionId: transaction._id,
@@ -142,7 +141,7 @@ class TransactionService {
         });
     }
 
-    #logTransactionFailed(reason, transaction) {
+    async #logTransactionFailed(reason, transaction) {
         securityLogger.info({
             message: `FAILED_TRANSACTION`,
             reason: reason || 'Unknown',

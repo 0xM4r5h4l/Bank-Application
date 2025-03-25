@@ -1,20 +1,22 @@
 const express = require('express');
 const router = express.Router();
+const authentication = require('../middleware/authentication');
+const authorization = require('../middleware/authorization');
 const {
     createUserAccount,
+    updateUserAccount,
     createAdminAccount,
     adminLogin
 } = require('../controllers/adminController');
-const authentication = require('../middleware/authentication');
-const authorization = require('../middleware/authorization');
 
 // Admin Login Route (Public)
 router.route('/login').post(adminLogin);
 
-// Admin Features Routes (Protected: superadmin)
+// Admin Control Panel (Protected: >= admin)
 router.route('/panel/createUserAccount').post(authentication, authorization(['admin', 'superadmin']), createUserAccount);
+router.route('/panel/updateUserAccount').post(authentication, authorization(['admin', 'superadmin']), updateUserAccount);
 
-// Admin Registeration
+// Admin Features Routes (Protected: superadmin)
 router.route('/register').post(authentication, authorization(['superadmin']), createAdminAccount);
 
 module.exports = router;

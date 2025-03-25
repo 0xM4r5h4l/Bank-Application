@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 
+const { db: config } = require('../config');
+
 const transactionSchema = new mongoose.Schema({
     accountNumber: {
         type: String,
@@ -9,7 +11,7 @@ const transactionSchema = new mongoose.Schema({
     transactionType: {
         type: String,
         enum: {
-            values: ['deposit', 'withdrawal', 'transfer'],
+            values: config.transaction.TRANSACTION_TYPES,
             message: '{VALUE} is not a valid transaction type'
         },
         required: [true, 'Transaction type is required']
@@ -35,7 +37,7 @@ const transactionSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: {
-            values: ['pending', 'completed', 'failed'],
+            values: config.transaction.TRANSACTION_STATUSES,
             message: '{VALUE} is not a valid transaction status'
         },
         default: 'pending'
@@ -59,7 +61,7 @@ transactionSchema.methods.validateAmount = async function () {
 
 // Add static method to find transactions by account number
 transactionSchema.statics.findByAccountNumber = async function (accountNumber) {
-    return this.find({
+    return await this.find({
         accountNumber
     });
 };

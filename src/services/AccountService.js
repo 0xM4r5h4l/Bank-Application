@@ -10,26 +10,30 @@ class AccountService {
     static async createAccount(data) {
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             data = {
-                accountNumber: this.#generateAccountNumber(),
+                accountNumber: await this.#generateAccountNumber(),
                 ...data
             }
 
             try {
                 return await Account.create({ ...data });
             } catch(error) {
-                if (error.code !== 11000) throw error;
                 logger.error({ message: 'ACCOUNT_NUMBER_DUPLICATE', number: data.accountNumber, attempt });
             }
-            logger.error({
-                message: 'ACCOUNT_GENERATION_FAILED',
-                details: `Account generation failed after ${MAX_RETRIES} attempts. UNABLE TO GENERATE UNIQUE ACCOUNT NUMBER`,
-                MAX_RETRIES
-            })
-            throw new Error(`Account generation failed after ${MAX_RETRIES} attempts`);
         }
+        logger.error({
+            message: 'ACCOUNT_GENERATION_FAILED',
+            details: `Account generation failed after ${MAX_RETRIES} attempts. UNABLE TO GENERATE UNIQUE ACCOUNT NUMBER`,
+            MAX_RETRIES
+        });
+        throw new Error(`Account generation failed after max_attempts`);
     }
 
-    static #generateAccountNumber() {
+    static async updateUserAccount(data) {
+        if (!data.accountNumber) throw new Error('Account number is required');
+        return await Account.findOneAndUpdate({ accountNumber: data.accountNumber }, {...data}, { new: true });
+    }
+
+    static async #generateAccountNumber() {
         const prefix = PREFIXES[randomInt(0, PREFIXES.length)];
         let num = '';
         for (let i = 0; num.length < ACCOUNT_NUMBER_LENGTH - prefix.length; i++) {
