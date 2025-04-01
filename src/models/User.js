@@ -2,23 +2,31 @@ const mongoose = require('mongoose');
 const validator = require('validator');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
-const { db: config } = require('../config');
+const { randomUUID } = require('crypto');
+const userRules  = require('../validations/rules/database/userRules');
 
 const UserSchema = mongoose.Schema({
+    userId: {
+        type: String,
+        default: () => randomUUID(),
+        unique: true,
+        immutable: true,
+    },
     firstName: {
         type: String,
         required: [true, 'First name is required'],
         trim: true,
-        maxlength: 50,
-        match: [/^[A-Za-z\s'-]+$/, 'Invalid characters in first name']
+        minlength: userRules.USER_FIRSTNAME.min,
+        maxlength: userRules.USER_FIRSTNAME.max,
+        match: [userRules.USER_FIRSTNAME.regex, 'Invalid characters in first name'],
     },
     lastName: {
         type: String,
         required: [true, 'Last name is required'],
         trim: true,
-        maxlength: 50,
-        match: [/^[A-Za-z\s'-]+$/, 'Invalid characters in last name']
+        maxlength: userRules.USER_LASTNAME.min,
+        maxlength: userRules.USER_LASTNAME.max,
+        match: [userRules.USER_LASTNAME.regex, 'Invalid characters in last name'],
     },
     email: {
         type: String,
@@ -35,8 +43,8 @@ const UserSchema = mongoose.Schema({
     password: {
         type: String,
         required: [true, 'Password is required'],
-        minlength: config.user.USER_MIN_PASSWORD,
-        maxlength: config.user.USER_MAX_PASSWORD,
+        minlength: userRules.USER_PASSWORD.min,
+        maxlength: userRules.USER_PASSWORD.max,
         trim: true,
         select: false
     },
@@ -46,37 +54,40 @@ const UserSchema = mongoose.Schema({
         unique: true,
         validate: {
             validator: function(v) {
-                return v.length == 14
+                return v.length == userRules.USER_NATIONAL_ID_LENGTH
             },
             message: props => `${props.value} is not a valid NationalId!`
         },
+        index: true,
         select: false
     },
     gender: {
         type: String,
         required: [true, 'Gender is required'],
         enum: {
-            values: config.user.USER_GENDERS,
+            values: userRules.USER_GENDERS,
             message: '{VALUE} is not a valid gender'
         },
-        
     },
     address: { 
         type: String,
         required: [true, 'Address is required'],
         trim: true,
-        maxlength: 160
+        minlength: userRules.USER_ADDRESS.min,
+        maxlength: userRules.USER_ADDRESS.max,
     },
     secondAddress: {
         type: String,
         required: false,
         trim: true,
-        maxlength: 160
+        minlength: userRules.USER_ADDRESS.min,
+        maxlength: userRules.USER_ADDRESS.max,
     },
     phoneNumber: {
         type: String,
         required: [true, 'Phone number is required'],
         unique: true,
+        maxlength: userRules.USER_PHONE_NUMBER_LENGTH,
         validate: {
             validator: function(v) {
                 return validator.isMobilePhone(v, 'ar-EG', {strictMode: true});
@@ -98,9 +109,9 @@ const UserSchema = mongoose.Schema({
                 const ageDiffMs = Date.now() - birthDate.getTime();
                 const ageDate = new Date(ageDiffMs);
                 const age = Math.abs(ageDate.getUTCFullYear() - 1970);
-                return age >= config.user.MINIMUM_USER_AGE;
+                return age >= userRules.USER_AGE.min && age <= userRules.USER_AGE.max;
             },
-            message: 'User is under the minimum age'
+            message: `User age cant be less than ${userRules.USER_AGE.min} or more than ${userRules.USER_AGE.max} years old`
         }
     },
     security: {
@@ -109,27 +120,41 @@ const UserSchema = mongoose.Schema({
         loginAttempts: { type: Number, default: 0, select: false },
         status: {
             type: String,
-            enum: config.user.USER_SECURITY_STATUSES,
+            enum: userRules.USER_SECURITY_STATUSES,
             default: 'pending',
         },
         lockedUntil: { type: Date, select: false },
     },
-
+    updatedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Admin',
+        required: false,
+    }
 }, {
     timestamps: true
 });
 
 // Hashing any password before saving
 UserSchema.pre('save', async function(next) {
-    if (!this.isModified('password')) return next();
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    if (this.isModified('password')) {
+        const salt = await bcrypt.genSalt(10);
+        this.password = await bcrypt.hash(this.password, salt);
+    }
+    if (this.isModified('nationalId')) {
+        const salt = await bcrypt.genSalt(10);
+        this.nationalId = await bcrypt.hash(this.nationalId, salt);
+    }
     next();
 })
 
 UserSchema.methods.comparePasswords = async function(reqPassword) {
     return await bcrypt.compare(reqPassword, this.password);
 }
+
+UserSchema.methods.compareNationalId = async function(reqNationalId) {
+    return await bcrypt.compare(reqNationalId, this.nationalId)
+}
+
 
 UserSchema.statics.checkDuplicates = async function(userData) {
     if (!userData) throw new Error('checkDuplicates: User data is required');

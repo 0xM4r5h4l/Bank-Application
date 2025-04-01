@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
-
-const { db: config } = require('../config');
+const accountRules  = require('../validations/rules/database/accountRules');
 
 const AccountSchema = new mongoose.Schema({
     accountNumber: {
@@ -10,9 +9,9 @@ const AccountSchema = new mongoose.Schema({
         trim: true,
         validate: {
             validator: function(v) {
-                return v.length == config.account.ACCOUNT_NUMBER_LENGTH;
+                return v.length == accountRules.ACCOUNT_NUMBER_LENGTH;
             },
-            message: `accountNumber length must be ${config.account.ACCOUNT_NUMBER_LENGTH}`
+            message: `accountNumber length must be ${accountRules.ACCOUNT_NUMBER_LENGTH}`
         },
         index: true
     },
@@ -24,7 +23,7 @@ const AccountSchema = new mongoose.Schema({
     accountType: {
         type: String,
         enum: { 
-            values: config.account.ACCOUNT_TYPES,
+            values: accountRules.ACCOUNT_TYPES,
             message: '{VALUE} is not a valid account type',
         },
         required: [true, 'accountType is required']
@@ -32,14 +31,23 @@ const AccountSchema = new mongoose.Schema({
     balance: {
         type: Number,
         required: [true, 'balance is required'],
-        min: [0, 'Balance is below the minimum allowed value'],
-        max: [config.account.MAXIMUM_ACCOUNT_BALANCE, 'Balance exceeds the maximum allowed value']
+        min: [accountRules.ACCOUNT_BALANCE_RANGE.min, 'Balance is below the minimum allowed value'],
+        max: [accountRules.ACCOUNT_BALANCE_RANGE.max, 'Balance exceeds the maximum allowed value']
     },
     status: {
         type: String,
-        enum: config.account.ACCOUNT_STATUS,
-        default: config.account.DEFAULT_ACCOUNT_STATUS
-    }
+        enum: accountRules.ACCOUNT_STATUS.values,
+        default: accountRules.ACCOUNT_STATUS.default,
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Admin',
+        required: [true, 'createdBy is required']
+    },
+    updatedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Admin',
+    },
 }, {
     timestamps: true
 });
@@ -92,7 +100,7 @@ AccountSchema.statics.accountDeposit = async function(accountNumber, amount) {
     const result = await this.findOneAndUpdate(
         {
             accountNumber,
-            balance: { $lte: config.account.MAXIMUM_ACCOUNT_BALANCE - amount },
+            balance: { $lte: accountRules.ACCOUNT_BALANCE_RANGE.max - amount },
         },
         { $inc: { balance: amount } },
         { new: true }

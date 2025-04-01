@@ -4,6 +4,7 @@ const authentication = require('../middleware/authentication');
 const authorization = require('../middleware/authorization');
 const {
     createUserAccount,
+    updateUserData,
     updateUserAccount,
     createAdminAccount,
     adminLogin
@@ -13,8 +14,9 @@ const {
 router.route('/login').post(adminLogin);
 
 // Admin Control Panel (Protected: >= admin)
-router.route('/panel/createUserAccount').post(authentication, authorization(['admin', 'superadmin']), createUserAccount);
-router.route('/panel/updateUserAccount').post(authentication, authorization(['admin', 'superadmin']), updateUserAccount);
+router.route('/users/accounts').post(authentication, authorization(['admin', 'superadmin']), createUserAccount);
+router.route('/users/accounts/update').put(authentication, authorization(['admin', 'superadmin']), updateUserAccount);
+router.route('/users/data/update').put(authentication, authorization(['admin', 'superadmin']), updateUserData);
 
 // Admin Features Routes (Protected: superadmin)
 router.route('/register').post(authentication, authorization(['superadmin']), createAdminAccount);

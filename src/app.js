@@ -1,6 +1,5 @@
 require('dotenv').config();
 require('express-async-errors');
-
 const express = require('express');
 const app = express();
 const connectDB = require('./db/connect'); // Database Connection
@@ -10,15 +9,14 @@ const requestIp = require('request-ip');
 const notFoundMiddleware = require('./middleware/not-found');
 const errorHandlerMiddleware = require('./middleware/error-handler');
 const logger = require('./utils/logger');
-
-const config = require('./config'); // just to check that config set properly
+const rules = require('./validations'); // Just to check that rules set properly
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 app.use(requestIp.mw());
 
 app.get('/', async (req, res) => {
-    res.status(200).json({status: "UP", name: 'United Bank'});
+    res.status(200).json({ message: 'It\'s up and running', results: { name: 'United Bank' }, success: true });
 })
 
 app.use('/api/v1/user/', userRoutes);
@@ -30,11 +28,10 @@ app.use(errorHandlerMiddleware);
 const PORT = process.env.PORT || 3000;
 const start = async () => {
     try {
-        if (!config) {
+        if (!rules) {
             logger.error('App configs are not loaded properly, stopping...');
             process.exit(1);
         }
-
         await connectDB(process.env.MONGO_URI);
         app.listen(PORT, () => {
             console.log(`Server started operations on port ${PORT}...`)

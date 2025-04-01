@@ -1,17 +1,17 @@
 require('dotenv').config();
-const { StatusCodes } = require('http-status-codes');
 const User = require('../models/User');
 const Account = require('../models/Account');
 const Transaction = require('../models/Transaction');
 const TransactionService = require('../services/TransactionService');
-const { TransactionError } = require('../outcomes/transactions');
 const logger = require('../utils/logger');
+const { TransactionError } = require('../outcomes/transactions');
+const { StatusCodes } = require('http-status-codes');
 const {
     userRegisterSchema,
     userLoginSchema,
     getAccountBalanceSchema,
     createTransferSchema
-} = require('../validations/userValidations');
+} = require('../validations/user/userValidations');
 
 const {
     BadRequestError,
@@ -23,13 +23,10 @@ const {
 
 // User Auth Controllers
 const userRegister = async (req, res) => {
-    const { error } = userRegisterSchema.validate({ ...req.body })
+    const { error } = userRegisterSchema.validate({ ...req.body });
     if (error) throw new BadRequestError(error.details[0].message);
 
-    const {
-        error: err,
-        duplicate
-    } = await User.checkDuplicates({
+    const { error: err, duplicate } = await User.checkDuplicates({
         email: req.body.email,
         nationalId: req.body.nationalId,
         phoneNumber: req.body.phoneNumber
@@ -42,11 +39,18 @@ const userRegister = async (req, res) => {
     if (!user) throw new BadRequestError('Couldn\'t register user');
 
     const userObject = user.toObject();
-    // Removing sensitive data from the user object
+    // Removing sensitive data
     ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete userObject[field]);
 
     const token = await user.createUserJWT();
-    res.status(StatusCodes.CREATED).json({ firstName: userObject.firstName, token: token });
+    res.status(StatusCodes.CREATED).json({
+        message: 'User registered successfully.',
+        results: {
+            firstName: userObject.firstName,
+            token: token
+        },
+        success: true
+    });
 }
 
 const userLogin = async (req, res) => {
@@ -66,7 +70,14 @@ const userLogin = async (req, res) => {
     ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete userObject[field]);
 
     const token = await user.createUserJWT();
-    res.status(StatusCodes.OK).json({ firstName: userObject.firstName , token: token })
+    res.status(StatusCodes.OK).json({
+        message: 'User logged in successfully.',
+        results: {
+            firstName: userObject.firstName,
+            token: token
+        },
+        success: true
+    })
 }
 
 // User Features Controllers
@@ -85,7 +96,13 @@ const getUserAccounts = async (req, res) => {
         status: account.status
     }));
 
-    res.status(StatusCodes.OK).json({ accounts: accountDetails });
+    res.status(StatusCodes.OK).json({
+        message: 'Accounts retrieved successfully',
+        results: {
+            accounts: accountDetails
+        },
+        success: true
+    });
 }
 
 const getAccountBalance = async (req, res) => {
@@ -99,7 +116,13 @@ const getAccountBalance = async (req, res) => {
     const balance = await Account.findOne({ accountNumber, accountHolderId: userId }).select('balance');
     if (!balance) throw new NotFoundError('Account not found');
 
-    res.status(StatusCodes.OK).json({ balance: balance?.balance });
+    res.status(StatusCodes.OK).json({
+        message: 'Account balance retrieved successfully.',
+        results: {
+            balance: balance?.balance
+        },
+        success: true
+    });
 }
 
 const createTransfer = async (req, res) => {
@@ -155,7 +178,7 @@ const createTransfer = async (req, res) => {
         throw new TransactionError(clientMessage, systemMessage);
     }
    
-    res.status(StatusCodes.CREATED).json({ message: 'Transfer created successfully' });
+    res.status(StatusCodes.CREATED).json({ message: 'Transfer created successfully', results: { transaction }, success: true });
 }
 
 const getTransactionsHistory = async (req, res) => {}

@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
-
-const { db: config } = require('../config');
+const transactionRules  = require('../validations/rules/database/transactionRules');
 
 const transactionSchema = new mongoose.Schema({
     accountNumber: {
@@ -11,7 +10,7 @@ const transactionSchema = new mongoose.Schema({
     transactionType: {
         type: String,
         enum: {
-            values: config.transaction.TRANSACTION_TYPES,
+            values: transactionRules.TRANSACTION_TYPES,
             message: '{VALUE} is not a valid transaction type'
         },
         required: [true, 'Transaction type is required']
@@ -19,16 +18,20 @@ const transactionSchema = new mongoose.Schema({
     amount: {
         type: Number,
         required: [true, 'Transaction amount is required'],
-        min: 0 // Ensure the amount is non-negative
+        min: transactionRules.TRANSFER_VALUE_RANGE.min,
+        max: transactionRules.TRANSFER_VALUE_RANGE.max
     },
     transactionDate: {
         type: Date,
+        required: false,
         default: Date.now
     },
     description: {
         type: String,
         required: false,
-        maxlength: 20
+        maxlength: transactionRules.TRANSFER_DESCRIPTION.max,
+        minlength: transactionRules.TRANSFER_DESCRIPTION.min,
+        trim: true
     },
     systemReason: {
         type: String,
@@ -37,7 +40,7 @@ const transactionSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: {
-            values: config.transaction.TRANSACTION_STATUSES,
+            values: transactionRules.TRANSACTION_STATUSES,
             message: '{VALUE} is not a valid transaction status'
         },
         default: 'pending'

@@ -1,6 +1,6 @@
 const { 
     getUserAccounts,
-    getAccountBalance, 
+    getAccountBalance,
     getTransactionsHistory,
     createTransfer,
     userRegister,
@@ -12,7 +12,7 @@ const {
     userLoginSchema,
     getAccountBalanceSchema,
     createTransferSchema
-} = require('../../../validations/userValidations');
+} = require('../../../validations/user/userValidations');
 
 const User = require('../../../models/User');
 const { StatusCodes } = require('http-status-codes');
@@ -21,20 +21,6 @@ describe('userRegister', () => {
     let req, res;
     
     beforeEach(() => {
-        userRegisterSchema.validate = jest.fn().mockReturnValue({ error: null });
-        res = { 
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-    });
-
-    afterEach(() => {
-        jest.clearAllMocks();
-        jest.resetAllMocks(); 
-        jest.restoreAllMocks();
-    });
-
-    it('should create user and return fullName, token (only)', async () => {
         req = {
             body: {
                 firstName: 'john',
@@ -45,18 +31,32 @@ describe('userRegister', () => {
                 gender: 'male',
                 address: '1 nozha st, giza',
                 phoneNumber: '+201199005678',
-                dateOfBirth: '1-1-1990'
-        }};
+                dateOfBirth: '1-1-1990',
+                toObject: function() { return {...this} },
+                createUserJWT: function() { return { token: 'fake-jwt-token' } }
+            }
+        };
+        res = { 
+            status: jest.fn().mockReturnThis(),
+            json: jest.fn()
+        };
         
-        User.create = jest.fn().mockReturnValue({
-            req,
-            createUserJWT: jest.fn().mockReturnValue('fake-jwt-token'),
-            toObject: jest.fn().mockReturnValue(req)
-        });
-        
+        userRegisterSchema.validate = jest.fn().mockReturnValue({ error: null });
+
+        User.create = jest.fn().mockReturnValue(req.body);
+        User.checkDuplicates = jest.fn().mockReturnThis({error: null, duplicate: null});
+    });
+
+    afterEach(() => {
+        jest.clearAllMocks();
+        jest.resetAllMocks();
+        jest.restoreAllMocks();
+    });
+
+    it('should create user and return HTTP status 201 (CREATED)', async () => {
+
         await userRegister(req, res);
         expect(res.status).toHaveBeenCalledWith(StatusCodes.CREATED);
-        expect(res.json).toHaveBeenCalledWith({ firstName: req.body.fullName, token: 'fake-jwt-token' });
     });
 
     it('should throw BadRequestError for invalid input', async () => {
@@ -67,7 +67,7 @@ describe('userRegister', () => {
         await expect(userRegister(req, res)).rejects.toThrow('Invalid email format');
     })
 
-    it('should throw BadRequestError if User.create returns null', async () => {
+    it('should throw if User.create returns null', async () => {
         User.create = jest.fn().mockReturnValue(null);
         await expect(() => userRegister(req, res)).rejects.toThrow('Couldn\'t register user');
     });

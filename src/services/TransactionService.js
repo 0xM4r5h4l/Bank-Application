@@ -1,7 +1,7 @@
 const securityLogger  = require('../utils/securityLogger');
 const Account = require('../models/Account');
 
-const { MAXIMUM_ACCOUNT_BALANCE } = process.env;
+const { ACCOUNT_BALANCE_RANGE } = require('../validations/rules/database/accountRules');
 
 class TransactionService {
     async processTransaction(transaction) {
@@ -91,7 +91,7 @@ class TransactionService {
                 // and the destination account can receive the amount
                 if(destinationAccountBalance === null) {
                     return { clientMessage: 'Invalid transaction data, transaction rejected', systemMessage: 'Invalid transaction data(toAccount)', status: false };
-                } else if ((destinationAccountBalance + transaction.amount) > MAXIMUM_ACCOUNT_BALANCE) {
+                } else if ((destinationAccountBalance + transaction.amount) > ACCOUNT_BALANCE_RANGE.max) {
                     return { clientMessage: 'Transaction not allowed', systemMessage: 'Destination account balance can\'t exceed the maximum allowed balance', status: false };
                 }
             }
@@ -103,7 +103,7 @@ class TransactionService {
             }
 
             if(transaction.transactionType ===  'deposit'){
-                if ((sourceAccountBalance + transaction.amount) > MAXIMUM_ACCOUNT_BALANCE) {
+                if ((sourceAccountBalance + transaction.amount) > ACCOUNT_BALANCE_RANGE.max) {
                     return { clientMessage: 'Your account balance has reached the maximum limit, transaction rejected', systemMessage: 'Account balance can\'t exceed the maximum allowed balance', status: false };
                 }
             }
