@@ -11,6 +11,7 @@ const {
     EMPLOYEE_ID_REGEX,
     ADMIN_PASSWORD,
     ADMIN_ROLES,
+    ADMIN_SECURITY_STATUSES,
     ADMIN_ALLOWED_EMAIL_TLDS
 } = require('../rules/database/adminRules');
 
@@ -74,6 +75,19 @@ module.exports = {
         email: Joi.string().email({ minDomainSegments: 2, tlds: { allow: ADMIN_ALLOWED_EMAIL_TLDS } }).required(),
         role: Joi.string().valid(...ADMIN_ROLES.values).optional(),
     }),
+    updateAdminAccountSchema: Joi.object({
+        employeeId: Joi.string().pattern(new RegExp(EMPLOYEE_ID_REGEX)).length(EMPLOYEE_ID_LENGTH).required(),
+        password: Joi.string().min(ADMIN_PASSWORD.min).max(ADMIN_PASSWORD.max).optional(),
+        email: Joi.string().email({ minDomainSegments: 2, tlds: { allow: ADMIN_ALLOWED_EMAIL_TLDS } }).optional(),
+        role: Joi.string().valid(...ADMIN_ROLES.values).optional(),
+        status: Joi.string().valid(...ADMIN_SECURITY_STATUSES).optional()
+    })
+    .or(
+        'password',
+        'email',
+        'role',
+        'status'
+    ),
     adminLoginSchema: Joi.object({
         employeeId: Joi.string().pattern(new RegExp(EMPLOYEE_ID_REGEX)).length(EMPLOYEE_ID_LENGTH).required(),
         email: Joi.string().email({ minDomainSegments: 2, tlds: { allow: ADMIN_ALLOWED_EMAIL_TLDS } }).required(),

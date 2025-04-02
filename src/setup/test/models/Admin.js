@@ -35,16 +35,24 @@ const AdminSchema = new mongoose.Schema({
         trim: true,
         select: false
     },
-    lastLogin: { type: Date },
-    lastLoginIp: { type: String },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
-    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+    security: {
+        lastLogin: { type: Date },
+        lastLoginIp: { type: String },
+        loginAttempts: { type: Number, default: 0 },
+        status: {
+            type: String,
+            enum: adminRules.ADMIN_SECURITY_STATUSES,
+            default: 'pending',
+        }
+    },
     role: {
         type: String,
         enum: adminRules.ADMIN_ROLES.values,
         default: adminRules.ADMIN_ROLES.default,
         required: true
-    }
+    },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
 }, {
     timestamps: true,
     autoIndex: false

@@ -109,15 +109,14 @@ const UserSchema = mongoose.Schema({
         }
     },
     security: {
-        lastLogin: String,
-        lastFailedLogin: String,
-        loginAttempts: { type: Number, default: 0, select: false },
+        lastLogin: { type: Date },
+        lastLoginIp: { type: String },
+        loginAttempts: { type: Number, default: 0 },
         status: {
             type: String,
             enum: userRules.USER_SECURITY_STATUSES,
             default: 'pending',
-        },
-        lockedUntil: { type: Date, select: false },
+        }
     },
     updatedBy: {
         type: mongoose.Schema.Types.ObjectId,

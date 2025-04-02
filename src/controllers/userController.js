@@ -17,7 +17,8 @@ const {
     BadRequestError,
     UnauthenticatedError,
     NotFoundError,
-    InternalServerError
+    InternalServerError,
+    ForbiddenError
 } = require('../outcomes/errors');
 
 
@@ -42,7 +43,7 @@ const userRegister = async (req, res) => {
     // Removing sensitive data
     ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete userObject[field]);
 
-    const token = await user.createUserJWT();
+    const token = await user.createUserJWT(req.clientIp);
     res.status(StatusCodes.CREATED).json({
         message: 'User registered successfully.',
         results: {
@@ -54,13 +55,29 @@ const userRegister = async (req, res) => {
 }
 
 const userLogin = async (req, res) => {
-    const { email, password } = req.body;
-
     const { error } = userLoginSchema.validate({ ...req.body });
     if (error) throw new BadRequestError(error.details[0].message);
-
+    
+    const { email, password } = req.body;
     const user = await User.findOne({ email }).select('+password');
     if (!user) throw new UnauthenticatedError("Invalid email or password.");
+    const userStatus = await user.loginAttempt();
+    
+    if (userStatus === 'pending') {
+        throw new ForbiddenError('Your account is being processed. We\'ll notify you once your account is activated.');
+    }
+    if (userStatus === 'locked') {
+        throw new ForbiddenError('Your account has been locked for security reasons. Please contact customer support to unlock it.');
+    }
+    if (userStatus === 'suspended') {
+        throw new ForbiddenError('Your account has been suspended. Please contact customer support to unlock it.');
+    }
+    if (userStatus === 'disabled') {
+        throw new UnauthenticatedError("Invalid email or password.");
+    }
+    if (userStatus !== 'active') {
+        throw new InternalServerError('Something went wrong, Please try again later.')
+    }
 
     const isPasswordCorrect = await user.comparePasswords(password);
     if (!isPasswordCorrect) throw new UnauthenticatedError("Invalid email or password.");
@@ -68,8 +85,8 @@ const userLogin = async (req, res) => {
     const userObject = user.toObject();
     // Removing sensitive data from the user object
     ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete userObject[field]);
-
-    const token = await user.createUserJWT();
+    await user.resetLoginAttempts();
+    const token = await user.createUserJWT(req.clientIp);
     res.status(StatusCodes.OK).json({
         message: 'User logged in successfully.',
         results: {

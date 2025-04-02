@@ -108,15 +108,14 @@ const UserSchema = mongoose.Schema({
         }
     },
     security: {
-        lastLogin: String,
-        lastFailedLogin: String,
-        loginAttempts: { type: Number, default: 0, select: false },
+        lastLogin: { type: Date },
+        lastLoginIp: { type: String },
+        loginAttempts: { type: Number, default: 0 },
         status: {
             type: String,
             enum: userRules.USER_SECURITY_STATUSES,
             default: 'pending',
-        },
-        lockedUntil: { type: Date, select: false },
+        }
     },
     updatedBy: {
         type: mongoose.Schema.Types.ObjectId,
@@ -169,7 +168,38 @@ UserSchema.statics.checkDuplicates = async function(userData) {
     return { error: null, duplicate: null };
 }
 
-UserSchema.methods.createUserJWT = async function() {
+UserSchema.methods.loginAttempt = async function() {
+    /**
+     * Attempt registered: returns true
+     * User locked: return false
+     */
+
+    if (this.security.status !== 'active') {
+        this.security.loginAttempts += 1;
+        await this.save();
+        return this.security.status;
+    }
+    if (this.security.loginAttempts >= userRules.USER_MAX_LOGIN_ATTEMPTS) {
+        this.security.status = 'locked';
+        await this.save();
+        return this.security.status ;
+    } else {
+        this.security.loginAttempts += 1;
+        await this.save();
+        return this.security.status ;
+    }
+}
+
+UserSchema.methods.resetLoginAttempts = async function() {
+    this.security.loginAttempts = 0;
+    await this.save();
+    return true;
+}
+
+UserSchema.methods.createUserJWT = async function(clientIp) {
+    this.security.lastLogin = new Date();
+    this.security.lastLoginIp = clientIp || 'Unknown';
+    await this.save();
     return jwt.sign({
         userId: this._id,
         fullName: `${this.firstName} ${this.lastName}`,

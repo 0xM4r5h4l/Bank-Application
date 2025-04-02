@@ -38,7 +38,8 @@ const adminFactory = () => {
         employeeId: String(faker.number.int({ min: 1000000000000001, max: 9999999999999999 })),
         password: 'admin123456789##',
         email: faker.internet.email({ provider: 'test.com' }),
-        role: 'admin'
+        role: 'admin',
+        security: { status: 'pending' }
     }
 }
 
@@ -81,7 +82,8 @@ const dummyData = (async () => {
         employeeId: '1000000000000000',
         email: 'system@test.com',
         password: '$uper1234567890',
-        role: 'superadmin'
+        role: 'superadmin',
+        security: { status: 'active' }
     }) // inserting the default superadmin
 
     for (let i=0; i < count.admins ;i++) {
