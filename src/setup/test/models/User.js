@@ -1,10 +1,14 @@
+require('dotenv').config();
 const mongoose = require('mongoose');
 const validator = require('validator');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const userRules  = require('../validations/rules/database/userRules');
+const userRules  = require('../../../validations/rules/database/userRules');
 
 const UserSchema = mongoose.Schema({
+    _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+    },
     firstName: {
         type: String,
         required: [true, 'First name is required'],
@@ -31,7 +35,6 @@ const UserSchema = mongoose.Schema({
             validator: validator.isEmail,
             message: 'Invalid email format'
         },
-        index: true
     },
     password: {
         type: String,
@@ -51,7 +54,6 @@ const UserSchema = mongoose.Schema({
             },
             message: props => `${props.value} is not a valid NationalId!`
         },
-        index: true,
         select: false
     },
     gender: {
@@ -87,7 +89,6 @@ const UserSchema = mongoose.Schema({
             },
             message: props => `${props.value} is not a valid US phone number!`
         },
-        index: true
     },
     dateOfBirth: { 
         type: String, 
@@ -124,7 +125,8 @@ const UserSchema = mongoose.Schema({
         required: false,
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    autoIndex: false
 });
 
 // Hashing any password before saving
@@ -139,42 +141,4 @@ UserSchema.pre('save', async function(next) {
     }
     next();
 })
-
-UserSchema.methods.comparePasswords = async function(reqPassword) {
-    return await bcrypt.compare(reqPassword, this.password);
-}
-
-UserSchema.methods.compareNationalId = async function(reqNationalId) {
-    return await bcrypt.compare(reqNationalId, this.nationalId)
-}
-
-UserSchema.statics.checkDuplicates = async function(userData) {
-    if (!userData) throw new Error('checkDuplicates: User data is required');
-
-    if (userData.email) {
-        const duplicateEmail = await this.findOne({ email: userData.email });
-        if (duplicateEmail) return { error: null, duplicate: 'duplicateEmail' };
-    }
-
-    if (userData.nationalId) {
-        const duplicateNationalId = await this.findOne({ nationalId: userData.nationalId });
-        if (duplicateNationalId) return { error: null, duplicate: 'nationalId' };
-    }
-
-    if (userData.phoneNumber) {
-        const duplicatePhoneNumber = await this.findOne({ phoneNumber: userData.phoneNumber });
-        if (duplicatePhoneNumber) return { error: null, duplicate: 'phoneNumber' };
-    }
-
-    return { error: null, duplicate: null };
-}
-
-UserSchema.methods.createUserJWT = async function() {
-    return jwt.sign({
-        userId: this._id,
-        fullName: `${this.firstName} ${this.lastName}`,
-        role: 'customer'
-    }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_LIFETIME });
-}
-
 module.exports = mongoose.model('User', UserSchema);

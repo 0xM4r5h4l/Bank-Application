@@ -66,7 +66,6 @@ describe('updateUserData', () => {
             await expect(updateUserData(req, res)).resolves.not.toThrow();
             expect(res.status).toHaveBeenCalledWith(200);
             expect(EmailService.sendEmail).toHaveBeenCalled();
-            console.log('res.json', res.json.mock.calls);
             expect(res.json.mock.calls[0][0]).toMatchObject({ success: true });
         })
     })

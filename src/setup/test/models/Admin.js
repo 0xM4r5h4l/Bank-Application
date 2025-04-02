@@ -1,25 +1,20 @@
+require('dotenv').config();
 const mongoose = require('mongoose');
 const validator = require('validator')
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const adminRules  = require('../validations/rules/database/adminRules');
+const adminRules  = require('../../../validations/rules/database/adminRules');
 
 const AdminSchema = new mongoose.Schema({
+    _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+    },
     employeeId: {
         type: String,
         required: [true, 'Employee ID is required'],
         unique: true,
         trim: true,
         match: [adminRules.EMPLOYEE_ID_REGEX , `Employee ID length must be ${adminRules.EMPLOYEE_ID_LENGTH}`],
-        index: true
-    },
-    password: {
-        type: String,
-        required: [true, 'Password is required'],
-        minlength: adminRules.ADMIN_PASSWORD.min,
-        maxlength: adminRules.ADMIN_PASSWORD.max,
-        trim: true,
-        select: false
     },
     email: {
         type: String,
@@ -31,7 +26,14 @@ const AdminSchema = new mongoose.Schema({
             validator: validator.isEmail,
             message: 'Invalid email format'
         },
-        index: true
+    },
+    password: {
+        type: String,
+        required: [true, 'Password is required'],
+        minlength: adminRules.ADMIN_PASSWORD.min,
+        maxlength: adminRules.ADMIN_PASSWORD.max,
+        trim: true,
+        select: false
     },
     lastLogin: { type: Date },
     lastLoginIp: { type: String },
@@ -44,7 +46,8 @@ const AdminSchema = new mongoose.Schema({
         required: true
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    autoIndex: false
 });
 
 // Hash password before saving
@@ -59,24 +62,5 @@ AdminSchema.pre('save', async function(next) {
     }
     next();
 });
-
-// Compare password
-AdminSchema.methods.comparePasswords = async function(reqPassword) {
-    return await bcrypt.compare(reqPassword, this.password);
-};
-
-// TODO: Create updateAdmin method (requires: superadmin role) updateAdmin() {}
-
-
-AdminSchema.methods.createAdminJWT = async function(clientIp) {
-    this.lastLogin = new Date();
-    this.lastLoginIp = clientIp || 'Unknown';
-    await this.save();
-    return jwt.sign({
-        userId: this._id,
-        fullName: 'Unknown',
-        role: this.role,
-    }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_LIFETIME });
-};
 
 module.exports = mongoose.model('Admin', AdminSchema);
