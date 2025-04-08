@@ -32,17 +32,17 @@ const userRegister = async (req, res) => {
         nationalId: req.body.nationalId,
         phoneNumber: req.body.phoneNumber
     });
-    
+
     if (err) throw new InternalServerError('Error while checking duplicate');
     if (duplicate) throw new BadRequestError(`User with the same '${duplicate}' already exists`);
-
+    
     const user = await User.create({ ...req.body });
     if (!user) throw new BadRequestError('Couldn\'t register user');
-
+    
     const userObject = user.toObject();
     // Removing sensitive data
     ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete userObject[field]);
-
+    
     const token = await user.createUserJWT(req.clientIp);
     res.status(StatusCodes.CREATED).json({
         message: 'User registered successfully.',
@@ -59,32 +59,21 @@ const userLogin = async (req, res) => {
     if (error) throw new BadRequestError(error.details[0].message);
     
     const { email, password } = req.body;
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email })
+    .select('+password')
+    .select('-nationalId -phoneNumber -dateOfBirth -address');
     if (!user) throw new UnauthenticatedError("Invalid email or password.");
     const userStatus = await user.loginAttempt();
-    
-    if (userStatus === 'pending') {
-        throw new ForbiddenError('Your account is being processed. We\'ll notify you once your account is activated.');
-    }
-    if (userStatus === 'locked') {
-        throw new ForbiddenError('Your account has been locked for security reasons. Please contact customer support to unlock it.');
-    }
-    if (userStatus === 'suspended') {
-        throw new ForbiddenError('Your account has been suspended. Please contact customer support to unlock it.');
-    }
-    if (userStatus === 'disabled') {
-        throw new UnauthenticatedError("Invalid email or password.");
-    }
-    if (userStatus !== 'active') {
-        throw new InternalServerError('Something went wrong, Please try again later.')
-    }
+
+    if (userStatus == 'pending') throw new ForbiddenError('Account pending. It needs verification.')
+    if (userStatus !== 'active') throw new ForbiddenError('Account restricted. Contact bank customer service.');
 
     const isPasswordCorrect = await user.comparePasswords(password);
     if (!isPasswordCorrect) throw new UnauthenticatedError("Invalid email or password.");
 
     const userObject = user.toObject();
     // Removing sensitive data from the user object
-    ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete userObject[field]);
+    delete userObject.password;
     await user.resetLoginAttempts();
     const token = await user.createUserJWT(req.clientIp);
     res.status(StatusCodes.OK).json({

@@ -35,14 +35,6 @@ const createUserAccount = async (req, res) => {
 }
 
 const updateUserData = async (req, res) => {
-    /*
-        + Takes admin id (userId)
-        + Take data from req.body & checking (Joi Schema)
-        + Find accountNumber (Account)
-            + if exists get the accountHolderId
-            - if doesn't exist return NotFoundError
-        + Find and update the User with userId(accountHolderId)
-    */
     let tempPasswordRequest = false;
     const { error } = updateUserDataSchema.validate({ ...req.body });
     if (error) throw new BadRequestError(error.details[0].message);
@@ -163,11 +155,8 @@ const adminLogin = async (req, res) => {
     if (error) throw new BadRequestError(error.details[0].message);
 
     const { employeeId, email, password } = req.body;
-
     const admin = await Admin.findOne({ employeeId, email }).select('+password');
-
     if (!admin) throw new UnauthenticatedError('Invalid authentication credentials provided.');
-
     const adminStatus = await admin.loginAttempt();
 
     if (adminStatus === 'pending') {

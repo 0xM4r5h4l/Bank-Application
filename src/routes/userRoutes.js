@@ -13,8 +13,8 @@ const {
 const authenticationMiddleware = require('../middleware/authentication');
 
 // User Account Routes (Public)
-router.route('/auth/register').post(userRegister);
-router.route('/auth/login').post(userLogin);
+router.route('/register').post(userRegister);
+router.route('/login').post(userLogin);
 
 // User Features Routes (Protected)
 router.route('/getUserAccounts').get(authenticationMiddleware, getUserAccounts);

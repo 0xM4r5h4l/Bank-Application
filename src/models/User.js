@@ -45,12 +45,6 @@ const UserSchema = mongoose.Schema({
         type: String,
         required: [true, 'NationalId is required'],
         unique: true,
-        validate: {
-            validator: function(v) {
-                return v.length == userRules.USER_NATIONAL_ID_LENGTH
-            },
-            message: props => `${props.value} is not a valid NationalId!`
-        },
         index: true,
         select: false
     },
@@ -143,13 +137,8 @@ UserSchema.methods.comparePasswords = async function(reqPassword) {
     return await bcrypt.compare(reqPassword, this.password);
 }
 
-UserSchema.methods.compareNationalId = async function(reqNationalId) {
-    return await bcrypt.compare(reqNationalId, this.nationalId)
-}
-
 UserSchema.statics.checkDuplicates = async function(userData) {
     if (!userData) throw new Error('checkDuplicates: User data is required');
-
     if (userData.email) {
         const duplicateEmail = await this.findOne({ email: userData.email });
         if (duplicateEmail) return { error: null, duplicate: 'duplicateEmail' };

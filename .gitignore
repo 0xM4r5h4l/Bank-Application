@@ -1,6 +1,7 @@
-.env
 /node_modules
 /logs
+/coverage
+.env
 package-lock.json
 Front.txt
 input.css

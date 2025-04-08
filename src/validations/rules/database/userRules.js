@@ -1,7 +1,7 @@
 // User Model Rules
 module.exports = {
-    USER_FIRSTNAME: { min: 2, max: 50, regex: /^[A-Za-z-']+$/ },
-    USER_LASTNAME: { min: 2, max: 50, regex: /^[A-Za-z-']+$/ },
+    USER_FIRSTNAME: { min: 2, max: 50, regex: /^[A-Za-z-\s']+$/ },
+    USER_LASTNAME: { min: 2, max: 50, regex: /^[A-Za-z-\s']+$/ },
     USER_GENDERS: ['male', 'female'],
     USER_AGE: { min: 21, max: 120 },
     USER_NATIONAL_ID_LENGTH: 14,
