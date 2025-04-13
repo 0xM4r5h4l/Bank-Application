@@ -8,12 +8,14 @@ const {
     createTransfer,
     userRegister, 
     userLogin,
+    userVerifyEmail
 } = require('../controllers/userController');
 
 const authenticationMiddleware = require('../middleware/authentication');
 
 // User Account Routes (Public)
 router.route('/register').post(userRegister);
+router.route('/verify/:token').post(userVerifyEmail);
 router.route('/login').post(userLogin);
 
 // User Features Routes (Protected)

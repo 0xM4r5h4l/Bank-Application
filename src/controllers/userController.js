@@ -6,9 +6,12 @@ const TransactionService = require('../services/TransactionService');
 const logger = require('../utils/logger');
 const { TransactionError } = require('../outcomes/transactions');
 const { StatusCodes } = require('http-status-codes');
+const EmailService = require('../services/EmailService');
+const emailService = new EmailService();
 const {
     userRegisterSchema,
     userLoginSchema,
+    userVerifyEmailSchema,
     getAccountBalanceSchema,
     createTransferSchema
 } = require('../validations/user/userValidations');
@@ -21,6 +24,7 @@ const {
     ForbiddenError
 } = require('../outcomes/errors');
 
+const LOGIN_PROCESS_GAP_DELAY = process.env.LOGIN_PROCESS_GAP_DELAY;
 
 // User Auth Controllers
 const userRegister = async (req, res) => {
@@ -44,12 +48,34 @@ const userRegister = async (req, res) => {
     ['password', 'nationalId', 'phoneNumber', 'dateOfBirth', 'address'].forEach(field => delete userObject[field]);
     
     const token = await user.createUserJWT(req.clientIp);
+    if (!token) throw new InternalServerError('Error while generating token');
+
+    const verifyToken = await user.createVerificationToken();
+    if (!verifyToken) throw new InternalServerError('Error while generating verification token');
+
+    const emailVerify = emailService.sendVerificationEmail(userObject.email, userObject.firstName, verifyToken);
+    if (!emailVerify) throw new InternalServerError('Error while sending verification email');
+
     res.status(StatusCodes.CREATED).json({
         message: 'User registered successfully.',
         results: {
             firstName: userObject.firstName,
             token: token
         },
+        success: true
+    });
+}
+
+const userVerifyEmail = async (req, res) => {
+    const { token } = req.params;
+    const { error } = userVerifyEmailSchema.validate({ token });
+    if (error) throw new BadRequestError(error.details[0].message);
+    const verify = await User.verifyUserToken(token);
+    if (!verify) throw new BadRequestError('Invalid token or token expired');
+
+    res.status(StatusCodes.OK).json({
+        message: 'Email verified successfully, you can now login.',
+        results: {},
         success: true
     });
 }
@@ -62,20 +88,24 @@ const userLogin = async (req, res) => {
     const user = await User.findOne({ email })
     .select('+password')
     .select('-nationalId -phoneNumber -dateOfBirth -address');
-    if (!user) throw new UnauthenticatedError("Invalid email or password.");
+    if (!user) {
+        // Next line for security: Fixing time-based email enumeration
+        await new Promise(resolve => setTimeout(resolve, LOGIN_PROCESS_GAP_DELAY));
+        throw new UnauthenticatedError("Invalid email or password.");
+    };
     const userStatus = await user.loginAttempt();
-
-    if (userStatus == 'pending') throw new ForbiddenError('Account pending. It needs verification.')
-    if (userStatus !== 'active') throw new ForbiddenError('Account restricted. Contact bank customer service.');
 
     const isPasswordCorrect = await user.comparePasswords(password);
     if (!isPasswordCorrect) throw new UnauthenticatedError("Invalid email or password.");
-
+    
+    if (userStatus == 'pending') throw new ForbiddenError('Account pending. It needs verification.')
+    if (userStatus !== 'active') throw new ForbiddenError('Account restricted. Contact bank customer service.');
     const userObject = user.toObject();
     // Removing sensitive data from the user object
     delete userObject.password;
     await user.resetLoginAttempts();
     const token = await user.createUserJWT(req.clientIp);
+    if (!token) throw new InternalServerError('Error while generating token');
     res.status(StatusCodes.OK).json({
         message: 'User logged in successfully.',
         results: {
@@ -196,5 +226,6 @@ module.exports = {
     getTransactionsHistory,
     createTransfer,
     userRegister,
-    userLogin
+    userLogin,
+    userVerifyEmail
 }

@@ -5,11 +5,22 @@ const securityLogger  = require('../utils/securityLogger');
 const { ACCOUNT_NUMBER_LENGTH, ACCOUNT_NUMBER_PREFIXES } = require('../validations/rules/database/accountRules');
 const MAX_RETRIES = 5;
 
+class AccountNumberGenerator {
+    static async generate() {
+        const prefix = ACCOUNT_NUMBER_PREFIXES[randomInt(0, ACCOUNT_NUMBER_PREFIXES.length)];
+        let num = '';
+        while (num.length < ACCOUNT_NUMBER_LENGTH - prefix.length) {
+            num += randomInt(0, 10);
+        }
+        return prefix + num;
+    }
+}
+
 class AccountService {
-    static async createAccount(data) {
+    async createAccount(data) {
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             data = {
-                accountNumber: await this.#generateAccountNumber(),
+                accountNumber: await AccountNumberGenerator.generate(),
                 ...data
             }
             try {
@@ -29,7 +40,7 @@ class AccountService {
         throw new Error('Account generation failed after reaching max_attempts');
     }
 
-    static async updateUserAccount(data) {
+    async updateUserAccount(data) {
         if (!data.accountNumber) throw new Error('Account number is required');
         const account = await Account.findOneAndUpdate({ accountNumber: data.accountNumber }, {...data}, { new: true });
         if (!account) throw new Error('Account not found, couldn\'t update account');
@@ -37,14 +48,6 @@ class AccountService {
         return account;
     }
 
-    static async #generateAccountNumber() {
-        const prefix = ACCOUNT_NUMBER_PREFIXES[randomInt(0, ACCOUNT_NUMBER_PREFIXES.length)];
-        let num = '';
-        while (num.length < ACCOUNT_NUMBER_LENGTH - prefix.length) {
-            num += randomInt(0, 10);
-        }
-        return prefix + num;
-    }
 }
 
 module.exports = AccountService;

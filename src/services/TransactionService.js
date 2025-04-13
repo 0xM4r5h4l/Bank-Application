@@ -1,37 +1,121 @@
 const securityLogger  = require('../utils/securityLogger');
 const Account = require('../models/Account');
-
 const { ACCOUNT_BALANCE_RANGE } = require('../validations/rules/database/accountRules');
+
+class TransactionLogger {
+    static async logProcessing(transaction) {
+        securityLogger.info({
+            message: 'PROCESSING_TRANSACTION',
+            transactionId: transaction._id,
+            transactionType: transaction.transactionType,
+            source: transaction.accountNumber,
+            destination: transaction.toAccount || 'Unknown',
+            amount: transaction.amount,
+            date: transaction.transactionDate,
+            category: 'transactions'
+        });
+    }
+
+    static async logSuccess(transaction) {
+        securityLogger.info({
+            message: 'SUCCESSFUL_TRANSACTION',
+            transactionId: transaction._id,
+            transactionType: transaction.transactionType,
+            source: transaction.accountNumber,
+            destination: transaction.toAccount || 'Unknown',
+            amount: transaction.amount,
+            date: transaction.transactionDate,
+            category: 'transactions'
+        });
+    }
+
+    static async logFailed(reason, transaction) {
+        securityLogger.info({
+            message: 'FAILED_TRANSACTION',
+            reason: reason || 'Unknown',
+            transactionId: transaction._id,
+            transactionType: transaction.transactionType,
+            source: transaction.accountNumber,
+            destination: transaction.toAccount || 'Unknown',
+            amount: transaction.amount,
+            date: transaction.transactionDate,
+            category: 'transactions'
+        });
+    }
+}
+
+class TransactionValidator {
+    static async validate(transaction) {
+        try{
+            if (!transaction || typeof transaction.accountNumber !== 'string' || typeof transaction.amount !== 'number' || transaction.amount <= 0 || transaction.description?.length > 20) {
+                return { clientMessage: 'Invalid transaction data, transaction rejected', systemMessage: 'Invalid transaction data', status: false };
+            }
+
+            const sourceAccountBalance = await Account.checkAccountBalance(transaction.accountNumber);
+            if (sourceAccountBalance === null) {
+                return { clientMessage: 'Invalid transaction data, transaction rejected', systemMessage: 'Invalid transaction data(accountNumber)', status: false };
+            }
+
+            if(transaction.transactionType === 'transfer'){
+                if (sourceAccountBalance < transaction.amount) {
+                    return { clientMessage: 'Insufficient balance, transaction rejected', systemMessage: 'Insufficient balance', status: false };
+                }
+
+                const destinationAccountBalance = await Account.checkAccountBalance(transaction.toAccount);
+
+                if(destinationAccountBalance === null) {
+                    return { clientMessage: 'Invalid transaction data, transaction rejected', systemMessage: 'Invalid transaction data(toAccount)', status: false };
+                } else if ((destinationAccountBalance + transaction.amount) > ACCOUNT_BALANCE_RANGE.max) {
+                    return { clientMessage: 'Transaction not allowed', systemMessage: 'Destination account balance can\'t exceed the maximum allowed balance', status: false };
+                }
+            }
+
+            if(transaction.transactionType ===  'withdrawal'){
+                if (sourceAccountBalance < transaction.amount) {
+                    return { clientMessage: 'Insufficient balance, transaction rejected', systemMessage: 'Insufficient balance', status: false };
+                }
+            }
+
+            if(transaction.transactionType ===  'deposit'){
+                if ((sourceAccountBalance + transaction.amount) > ACCOUNT_BALANCE_RANGE.max) {
+                    return { clientMessage: 'Your account balance has reached the maximum limit, transaction rejected', systemMessage: 'Account balance can\'t exceed the maximum allowed balance', status: false };
+                }
+            }
+
+            return { clientMessage: 'Transaction successful', systemMessage: 'Transaction Success', status: true };
+        } catch (error) {
+            return { clientMessage: 'Something went wrong while processing your transaction', systemMessage: `Error: ${error.message || 'Unknown error'}`, status: false };
+        }
+    }
+}
 
 class TransactionService {
     async processTransaction(transaction) {
         try {
             // Logs the transaction processing
-            await this.#logTransactionProcessing(transaction);
+            await TransactionLogger.logProcessing(transaction);
 
             // Validate the transaction
-            const { clientMessage, systemMessage, status } = await this.#validateTransaction(transaction);
+            const { clientMessage, systemMessage, status } = await TransactionValidator.validate(transaction);
             if ( status === true ) {
                 await this.#handleTransaction(transaction);
 
                 // Log the transaction success
-                await this.#logTransactionSuccess(transaction);
+                await TransactionLogger.logSuccess(transaction);
                 return { clientMessage: clientMessage, systemMessage: systemMessage, status: 'completed' };
             } else {
-                await this.#logTransactionFailed(systemMessage, transaction);
+                await TransactionLogger.logFailed(systemMessage, transaction);
                 return { clientMessage: clientMessage, systemMessage: systemMessage, status: 'failed' };
             }
 
         } catch (error) {
-            // Log the transaction failure
-            await this.#logTransactionFailed(error.message || 'Error while processing transaction', transaction);
+            await TransactionLogger.logFailed(error.message || 'Error while processing transaction', transaction);
             error.message = error.message || 'System error while processing transaction';
             throw error;
         }
     }
 
     async #handleTransaction(transaction) {
-        // Transfer logic
         try {
             if( transaction.transactionType === 'transfer' ) {
                 const sourceAccountWithdrawal = await Account.accountWithdraw(transaction.accountNumber, transaction.amount);
@@ -69,91 +153,6 @@ class TransactionService {
         }
     }
 
-    async #validateTransaction(transaction) {
-        try{
-            // Validation logic
-            if (!transaction || typeof transaction.accountNumber !== 'string' || typeof transaction.amount !== 'number' || transaction.amount <= 0 || transaction.description?.length > 20) {
-                return { clientMessage: 'Invalid transaction data, transaction rejected', systemMessage: 'Invalid transaction data', status: false };
-            }
-
-            const sourceAccountBalance = await Account.checkAccountBalance(transaction.accountNumber);
-            if (sourceAccountBalance === null) {
-                return { clientMessage: 'Invalid transaction data, transaction rejected', systemMessage: 'Invalid transaction data(accountNumber)', status: false };
-            }
-
-            if(transaction.transactionType === 'transfer'){
-                if (sourceAccountBalance < transaction.amount) {
-                    return { clientMessage: 'Insufficient balance, transaction rejected', systemMessage: 'Insufficient balance', status: false };
-                }
-
-                const destinationAccountBalance = await Account.checkAccountBalance(transaction.toAccount);
-                // Checks if the destination account balance is not null 
-                // and the destination account can receive the amount
-                if(destinationAccountBalance === null) {
-                    return { clientMessage: 'Invalid transaction data, transaction rejected', systemMessage: 'Invalid transaction data(toAccount)', status: false };
-                } else if ((destinationAccountBalance + transaction.amount) > ACCOUNT_BALANCE_RANGE.max) {
-                    return { clientMessage: 'Transaction not allowed', systemMessage: 'Destination account balance can\'t exceed the maximum allowed balance', status: false };
-                }
-            }
-
-            if(transaction.transactionType ===  'withdrawal'){
-                if (sourceAccountBalance < transaction.amount) {
-                    return { clientMessage: 'Insufficient balance, transaction rejected', systemMessage: 'Insufficient balance', status: false };
-                }
-            }
-
-            if(transaction.transactionType ===  'deposit'){
-                if ((sourceAccountBalance + transaction.amount) > ACCOUNT_BALANCE_RANGE.max) {
-                    return { clientMessage: 'Your account balance has reached the maximum limit, transaction rejected', systemMessage: 'Account balance can\'t exceed the maximum allowed balance', status: false };
-                }
-            }
-
-            return { clientMessage: 'Transaction successful', systemMessage: 'Transaction Success', status: true };
-        } catch (error) {
-            return { clientMessage: 'Something went wrong while processing your transaction', systemMessage: `Error: ${error.message || 'Unknown error'}`, status: false };
-        }
-    }
-
-    async #logTransactionProcessing(transaction) {
-        // Dont forget to put rest of the data to log
-        securityLogger.info({
-            message: `PROCESSING_TRANSACTION`,
-            transactionId: transaction._id,
-            transactionType: transaction.transactionType,
-            source: transaction.accountNumber,
-            destination: transaction.toAccount || null,
-            amount: transaction.amount,
-            date: transaction.transactionDate,
-            category: 'transactions'
-        });
-    }
-
-    async #logTransactionSuccess(transaction) {
-        securityLogger.info({
-            message: `SUCCESSFUL_TRANSACTION`,
-            transactionId: transaction._id,
-            transactionType: transaction.transactionType,
-            source: transaction.accountNumber,
-            destination: transaction.toAccount || 'Unknown',
-            amount: transaction.amount,
-            date: transaction.transactionDate,
-            category: 'transactions'
-        });
-    }
-
-    async #logTransactionFailed(reason, transaction) {
-        securityLogger.info({
-            message: `FAILED_TRANSACTION`,
-            reason: reason || 'Unknown',
-            transactionId: transaction._id,
-            transactionType: transaction.transactionType,
-            source: transaction.accountNumber,
-            destination: transaction.toAccount || 'Unknown',
-            amount: transaction.amount,
-            date: transaction.transactionDate,
-            category: 'transactions'
-        });
-    }
 }
 
 module.exports = TransactionService;

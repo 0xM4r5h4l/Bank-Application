@@ -3,6 +3,7 @@ const validator = require('validator');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const userRules  = require('../validations/rules/database/userRules');
+const { randomUUID } = require('crypto');
 
 const UserSchema = mongoose.Schema({
     firstName: {
@@ -105,6 +106,10 @@ const UserSchema = mongoose.Schema({
         lastLogin: { type: Date },
         lastLoginIp: { type: String },
         loginAttempts: { type: Number, default: 0 },
+        verificationToken: {
+            token: { type: String },
+            expires: { type: Date }
+        },
         status: {
             type: String,
             enum: userRules.USER_SECURITY_STATUSES,
@@ -182,6 +187,29 @@ UserSchema.methods.loginAttempt = async function() {
 UserSchema.methods.resetLoginAttempts = async function() {
     this.security.loginAttempts = 0;
     await this.save();
+    return true;
+}
+
+UserSchema.methods.createVerificationToken = async function() {
+    const token = randomUUID();
+    this.security.verificationToken.token = token;
+    this.security.verificationToken.expires = Date.now() + (userRules.USER_VERIFICATION_TOKEN_EXPIRY * 60 * 1000);
+    await this.save();
+    return token;
+}
+
+UserSchema.statics.verifyUserToken = async function(token) {
+    if (!token) return false;
+    const user = await this.findOne({ 'security.verificationToken.token': token });
+    if (!user) return false;
+    const now = Date.now();
+    if (now > user.security.verificationToken.expires) {
+        return false;
+    }
+    user.security.status = 'active';
+    user.security.verificationToken.token = undefined;
+    user.security.verificationToken.expires = undefined;
+    await user.save();
     return true;
 }
 

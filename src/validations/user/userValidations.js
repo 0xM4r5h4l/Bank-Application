@@ -12,6 +12,7 @@ const {
     USER_PASSWORD
 } = require('../rules/database/userRules');
 
+const uuidv4Regex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
 
 module.exports = {
     userRegisterSchema: Joi.object({
@@ -30,6 +31,11 @@ module.exports = {
     userLoginSchema: Joi.object({
         email: Joi.string().email({ minDomainSegments: 2, tlds: { allow: USER_ALLOWED_EMAIL_TLDS } }).required(),
         password: Joi.string().min(USER_PASSWORD.min).max(USER_PASSWORD.max).required()
+    }),
+    userVerifyEmailSchema: Joi.object({
+        token: Joi.string().regex(uuidv4Regex).required().messages({
+            'string.pattern.base': 'Invalid token format.',
+          })
     }),
     getAccountBalanceSchema: Joi.object({
         accountNumber: Joi.string().length(ACCOUNT_NUMBER_LENGTH).required()

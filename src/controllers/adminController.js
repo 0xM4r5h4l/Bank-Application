@@ -6,7 +6,7 @@ const Admin = require('../models/Admin');
 const User = require('../models/User');
 const Account = require('../models/Account')
 const EmailService = require('../services/EmailService');
-const generateTempPassword = require('../utils/generateTempPassword');
+const tempPasswordGenerator = require('../utils/generateRandomString');
 const {
     createUserAccountSchema,
     updateUserAccountSchema,
@@ -15,6 +15,8 @@ const {
     updateAdminAccountSchema,
     adminLoginSchema,
 } = require('../validations/admin/adminValidations');
+
+const LOGIN_PROCESS_GAP_DELAY = process.env.LOGIN_PROCESS_GAP_DELAY;
 
 // Admin Feautures
 const createUserAccount = async (req, res) => {
@@ -62,7 +64,7 @@ const updateUserData = async (req, res) => {
     if (!user) throw new NotFoundError('Account found, but user is not found.');
     
     if (tempPasswordRequest) {
-        const tempPassword = await generateTempPassword();
+        const tempPassword = await tempPasswordGenerator(16);
         if (tempPassword.error) throw new InternalServerError('Error generating temporary password');
         user.password = tempPassword;
         await user.save();
@@ -156,8 +158,16 @@ const adminLogin = async (req, res) => {
 
     const { employeeId, email, password } = req.body;
     const admin = await Admin.findOne({ employeeId, email }).select('+password');
-    if (!admin) throw new UnauthenticatedError('Invalid authentication credentials provided.');
+    if (!admin) {
+        // Next line for security: Fixing time-based email enumeration
+        await new Promise(resolve => setTimeout(resolve, LOGIN_PROCESS_GAP_DELAY));
+        throw new UnauthenticatedError('Invalid authentication credentials provided.')
+    };
     const adminStatus = await admin.loginAttempt();
+
+    
+    const passMatch = await admin.comparePasswords(password);
+    if (!passMatch) throw new UnauthenticatedError('Invalid authentication credentials provided.');
 
     if (adminStatus === 'pending') {
         throw new ForbiddenError('Your admin privileges are pending approval. Contact a manager for activation.');
@@ -168,9 +178,6 @@ const adminLogin = async (req, res) => {
     if (adminStatus !== 'active') {
         throw new InternalServerError('Something went wrong, Please try again later.');
     }
-
-    const passMatch = await admin.comparePasswords(password);
-    if (!passMatch) throw new UnauthenticatedError('Invalid authentication credentials provided.');
     
     await admin.resetLoginAttempts();
     const token = await admin.createAdminJWT(req.clientIp);
