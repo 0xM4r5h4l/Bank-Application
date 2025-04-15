@@ -102,7 +102,7 @@ class TransactionService {
 
                 // Log the transaction success
                 await TransactionLogger.logSuccess(transaction);
-                return { clientMessage: clientMessage, systemMessage: systemMessage, status: 'completed' };
+                return { clientMessage: clientMessage, systemMessage: systemMessage, status: 'successful' };
             } else {
                 await TransactionLogger.logFailed(systemMessage, transaction);
                 return { clientMessage: clientMessage, systemMessage: systemMessage, status: 'failed' };

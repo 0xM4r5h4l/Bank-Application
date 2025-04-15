@@ -1,7 +1,10 @@
 require('dotenv').config();
+const { USER_VERIFICATION_TOKEN_EXPIRY } = require('../validations/rules/database/userRules');
+
 class EmailService {
-    constructor() {
-        this.domain = process.env.DOMAIN;
+    constructor(domain) {
+        this.domain = domain;
+        this.USER_VERIFICATION_TOKEN_EXPIRY = USER_VERIFICATION_TOKEN_EXPIRY;
     }
     
     async sendEmail(to, subject, body) {
@@ -26,9 +29,16 @@ class EmailService {
     }
 
     async sendVerificationEmail(email, fname, token) {
-        const subject = 'Verify Your Email Address';
-        const body = `Dear ${fname},\n\nPlease click the link below to verify your email address:\n\n${this.domain}/user/verify/${token}\n\nThank you for choosing our service.\n\nBest regards,\nThe Team`;
+        const { subject, body } = EmailTemplate.getVerificationEmailTemplate(fname, this.domain, this.USER_VERIFICATION_TOKEN_EXPIRY, token);
         return await this.sendEmail(email, subject, body);
+    }
+}
+
+class EmailTemplate {
+    static getVerificationEmailTemplate(fname, domain, expiry, token) {
+        const subject = 'Verify Your Email Address';
+        const body = `Dear ${fname},\n\nPlease click the link below to verify your email address. This link will expire in ${expiry} minutes:\n\n${domain}/user/verify/${token}\n\nThank you for choosing our service.\n\nBest regards,\nThe Team`;
+        return { subject, body };
     }
 }
 

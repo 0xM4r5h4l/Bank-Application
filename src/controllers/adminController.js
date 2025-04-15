@@ -2,10 +2,12 @@ require('dotenv').config();
 const { StatusCodes } = require('http-status-codes');
 const { BadRequestError, ForbiddenError, UnauthenticatedError, InternalServerError, NotFoundError } = require('../outcomes/errors');
 const AccountService = require('../services/AccountService');
+const accountService = new AccountService();
 const Admin = require('../models/Admin');
 const User = require('../models/User');
 const Account = require('../models/Account')
 const EmailService = require('../services/EmailService');
+const emailService = new EmailService(process.env.DOMAIN);
 const tempPasswordGenerator = require('../utils/generateRandomString');
 const {
     createUserAccountSchema,
@@ -24,7 +26,7 @@ const createUserAccount = async (req, res) => {
     const { error } = createUserAccountSchema.validate({ ...req.body });
     if (error) throw new BadRequestError(error.details[0].message);
 
-    const account = await AccountService.createAccount(req.body);
+    const account = await accountService.createAccount(req.body);
     if (!account) throw new InternalServerError('Couldn\'t create account');
 
     res.status(StatusCodes.CREATED).json({
@@ -95,7 +97,7 @@ const updateUserAccount = async (req, res) => {
         }
     }
 
-    const account = await AccountService.updateUserAccount(req.body);
+    const account = await accountService.updateUserAccount(req.body);
     if (!account) throw new InternalServerError('Couldn\'t update account');
     const accountObject = account.toObject();
     // Removing sensitive data from the account object

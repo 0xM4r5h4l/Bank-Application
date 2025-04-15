@@ -198,19 +198,34 @@ UserSchema.methods.createVerificationToken = async function() {
     return token;
 }
 
-UserSchema.statics.verifyUserToken = async function(token) {
+UserSchema.statics.validateVerificationToken = async function(token) {
     if (!token) return false;
     const user = await this.findOne({ 'security.verificationToken.token': token });
     if (!user) return false;
+
     const now = Date.now();
     if (now > user.security.verificationToken.expires) {
         return false;
     }
+
     user.security.status = 'active';
     user.security.verificationToken.token = undefined;
     user.security.verificationToken.expires = undefined;
     await user.save();
     return true;
+}
+
+UserSchema.methods.getVerificationTokenState = async function() {
+    if (this.security.verificationToken.expires && this.security.verificationToken.token) {
+        const now = Date.now();
+        if (now > this.security.verificationToken.expires) {
+            return 'expired';
+        }
+        if (now < this.security.verificationToken.expires) {
+            return 'valid';
+        }
+    }
+    return 'not set';
 }
 
 UserSchema.methods.createUserJWT = async function(clientIp) {

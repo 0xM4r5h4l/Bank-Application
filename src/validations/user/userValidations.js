@@ -45,6 +45,8 @@ module.exports = {
         toAccount: Joi.string().length(ACCOUNT_NUMBER_LENGTH).required(),
         amount: Joi.number().min(TRANSFER_VALUE_RANGE.min).max(TRANSFER_VALUE_RANGE.max).positive().required(),
         description: Joi.string().min(TRANSFER_DESCRIPTION.min).max(TRANSFER_DESCRIPTION.max).optional()
+    }),
+    getTransferHistorySchema: Joi.object({
+        accountNumber: Joi.string().length(ACCOUNT_NUMBER_LENGTH).required()
     })
-    
 }

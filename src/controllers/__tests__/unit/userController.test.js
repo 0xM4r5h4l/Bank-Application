@@ -33,7 +33,8 @@ describe('userRegister', () => {
                 phoneNumber: '+201199005678',
                 dateOfBirth: '1-1-1990',
                 toObject: function() { return {...this} },
-                createUserJWT: function() { return { token: 'fake-jwt-token' } }
+                createUserJWT: function() { return { token: 'fake-jwt-token' } },
+                createVerificationToken: function() { return { token: 'fake-verification-token' } },
             }
         };
         res = { 

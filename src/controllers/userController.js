@@ -7,13 +7,15 @@ const logger = require('../utils/logger');
 const { TransactionError } = require('../outcomes/transactions');
 const { StatusCodes } = require('http-status-codes');
 const EmailService = require('../services/EmailService');
-const emailService = new EmailService();
+const emailService = new EmailService(process.env.DOMAIN);
+const censorString = require('../utils/censorString');
 const {
     userRegisterSchema,
     userLoginSchema,
     userVerifyEmailSchema,
     getAccountBalanceSchema,
-    createTransferSchema
+    createTransferSchema,
+    getTransferHistorySchema
 } = require('../validations/user/userValidations');
 
 const {
@@ -21,7 +23,8 @@ const {
     UnauthenticatedError,
     NotFoundError,
     InternalServerError,
-    ForbiddenError
+    ForbiddenError,
+    ConflictError
 } = require('../outcomes/errors');
 
 const LOGIN_PROCESS_GAP_DELAY = process.env.LOGIN_PROCESS_GAP_DELAY;
@@ -53,7 +56,7 @@ const userRegister = async (req, res) => {
     const verifyToken = await user.createVerificationToken();
     if (!verifyToken) throw new InternalServerError('Error while generating verification token');
 
-    const emailVerify = emailService.sendVerificationEmail(userObject.email, userObject.firstName, verifyToken);
+    const emailVerify = await emailService.sendVerificationEmail(userObject.email, userObject.firstName, verifyToken);
     if (!emailVerify) throw new InternalServerError('Error while sending verification email');
 
     res.status(StatusCodes.CREATED).json({
@@ -70,14 +73,43 @@ const userVerifyEmail = async (req, res) => {
     const { token } = req.params;
     const { error } = userVerifyEmailSchema.validate({ token });
     if (error) throw new BadRequestError(error.details[0].message);
-    const verify = await User.verifyUserToken(token);
+
+    const verify = await User.validateVerificationToken(token);
     if (!verify) throw new BadRequestError('Invalid token or token expired');
 
     res.status(StatusCodes.OK).json({
         message: 'Email verified successfully, you can now login.',
-        results: {},
+        results: [],
         success: true
     });
+}
+
+const userResendVerification = async (req, res) => {
+    const { userId } = req.user;
+    if (!userId) throw new UnauthenticatedError('Authentication required, Access denied.');
+
+    const user = await User.findOne({ _id: userId });
+    if (!user) throw new NotFoundError('User not found.');
+
+    if (user.security.status !== 'pending') throw new ConflictError('Account already verified');
+    const tokenStatus = await user.getVerificationTokenState();
+    if (tokenStatus === 'valid') {
+        const emailVerify = await emailService.sendVerificationEmail(user.email, user.firstName, user.security.verificationToken.token);
+        if (!emailVerify) throw new InternalServerError('Error while sending verification email');
+    } else if (tokenStatus === 'expired' || tokenStatus === 'not set') {
+        const newToken = await user.createVerificationToken();
+        if (!newToken) throw new InternalServerError('Something went wrong while creating verification token');
+
+        const emailVerify = await emailService.sendVerificationEmail(user.email, user.firstName, user.security.verificationToken.token);
+        if (!emailVerify) throw new InternalServerError('Error while sending verification email');
+    }
+
+    res.status(StatusCodes.OK).json({
+        message: 'Email verification resent successfully.',
+        results: [],
+        success: true
+    })
+
 }
 
 const userLogin = async (req, res) => {
@@ -100,16 +132,17 @@ const userLogin = async (req, res) => {
     
     if (userStatus == 'pending') throw new ForbiddenError('Account pending. It needs verification.')
     if (userStatus !== 'active') throw new ForbiddenError('Account restricted. Contact bank customer service.');
-    const userObject = user.toObject();
+
     // Removing sensitive data from the user object
-    delete userObject.password;
+    delete user.password;
     await user.resetLoginAttempts();
     const token = await user.createUserJWT(req.clientIp);
     if (!token) throw new InternalServerError('Error while generating token');
+
     res.status(StatusCodes.OK).json({
         message: 'User logged in successfully.',
         results: {
-            firstName: userObject.firstName,
+            firstName: user.firstName,
             token: token
         },
         success: true
@@ -149,7 +182,7 @@ const getAccountBalance = async (req, res) => {
     const { error } = getAccountBalanceSchema.validate({ accountNumber });
     if (error) throw new BadRequestError(error.details[0].message);
 
-    const balance = await Account.findOne({ accountNumber, accountHolderId: userId }).select('balance');
+    const balance = await Account.findOne({ accountNumber, accountHolderId: userId }).select('balance').lean();
     if (!balance) throw new NotFoundError('Account not found');
 
     res.status(StatusCodes.OK).json({
@@ -172,8 +205,8 @@ const createTransfer = async (req, res) => {
     if (accountNumber === toAccount) throw new BadRequestError('Cannot transfer to the same account.');
 
     // Checking Logic
-    const sourceAccount = await Account.findOne({ accountNumber: accountNumber, accountHolderId: userId }).select('accountNumber');
-    const destinationAccount = await Account.findOne({ accountNumber: toAccount }).select('accountNumber');
+    const sourceAccount = await Account.findOne({ accountNumber: accountNumber, accountHolderId: userId }).select('accountNumber').lean();
+    const destinationAccount = await Account.findOne({ accountNumber: toAccount }).select('accountNumber').lean();
     if (!sourceAccount || !destinationAccount) throw new NotFoundError('Account not found');
     
     const transaction = {
@@ -217,7 +250,54 @@ const createTransfer = async (req, res) => {
     res.status(StatusCodes.CREATED).json({ message: 'Transfer created successfully', results: { transaction }, success: true });
 }
 
-const getTransactionsHistory = async (req, res) => {}
+const getTransactionsHistory = async (req, res) => {
+    const { userId } = req.user;
+    if (!userId) throw new UnauthenticatedError('Authentication required, Access denied.');
+
+    const { error } = getTransferHistorySchema.validate(req.params);
+    if (error) throw new BadRequestError(error.details[0].message);
+
+    const { accountNumber } = req.params;
+    const account = await Account.findOne({ accountNumber, accountHolderId: userId }).select('accountNumber').lean();
+    if (!account) throw new NotFoundError('Account not found.');
+
+    const transactions = await Transaction.find({ $or: [{ accountNumber: account.accountNumber }, { toAccount: account.accountNumber }] })
+    .select({
+        _id: 0,
+        accountNumber: 1,
+        transactionType: 1,
+        amount: 1,
+        status: 1,
+        toAccount: 1,
+        transactionDate: { 
+            $dateToString: {
+                format: "%Y-%m-%d %H:%M",
+                date: "$transactionDate",
+                timezone: "Africa/Cairo"
+            }
+        }
+    }).limit(15).lean();
+
+    if (!transactions) {
+        return res.status(StatusCodes.OK).json({
+            message: 'No transactions found.',
+            results: [],
+            success: true
+        })
+    }
+
+    const censoredTransactions = transactions.map(transaction => ({
+        ...transaction,
+        accountNumber: censorString(transaction.accountNumber, (transaction.accountNumber.length - 4)),
+        toAccount: censorString(transaction.toAccount, (transaction.toAccount.length - 4))
+    }));
+
+    res.status(StatusCodes.OK).json({
+        message: "Transactions retrieved successfully.",
+        results: censoredTransactions,
+        success: true
+    })
+}
 
 
 module.exports = { 
@@ -227,5 +307,6 @@ module.exports = {
     createTransfer,
     userRegister,
     userLogin,
-    userVerifyEmail
+    userVerifyEmail,
+    userResendVerification
 }

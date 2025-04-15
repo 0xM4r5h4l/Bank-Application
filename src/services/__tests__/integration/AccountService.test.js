@@ -34,7 +34,8 @@ describe('AccountService', () => {
         })
         
         it('should create account with unique account number', async () => {
-            const accountData = await AccountService.createAccount({
+            const account = new AccountService();
+            const accountData = await account.createAccount({
                 accountType: 'Savings',
                 balance: 1,
                 accountHolderId: userData._id,
