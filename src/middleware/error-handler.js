@@ -21,7 +21,6 @@ const errorHandlerMiddleware = (err, req, res, next) => {
         err.logLevel = 'warn';
     }
     
-    //return res.status(customError.statusCode).json({ msg: err });
     return res.status(customError.statusCode).json({
         message: customError.msg,
         results: null,

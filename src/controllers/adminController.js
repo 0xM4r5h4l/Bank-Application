@@ -70,7 +70,7 @@ const updateUserData = async (req, res) => {
         if (tempPassword.error) throw new InternalServerError('Error generating temporary password');
         user.password = tempPassword;
         await user.save();
-        EmailService.sendEmail(user.email, 'Temporary Password', `Your temporary password is: ${tempPassword}`);
+        await emailService.sendEmail(user.email, 'Temporary Password', `Your temporary password is: ${tempPassword}`);
     }
     
     if(req.body['security.status']) await user.resetLoginAttempts();

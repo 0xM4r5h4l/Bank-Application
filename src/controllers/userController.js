@@ -1,14 +1,18 @@
-require('dotenv').config();
 const User = require('../models/User');
 const Account = require('../models/Account');
 const Transaction = require('../models/Transaction');
+
 const TransactionService = require('../services/TransactionService');
-const logger = require('../utils/logger');
+const logger = require('../utils/logManager');
+const transactionsLogger = logger.get('transactions');
+
 const { TransactionError } = require('../outcomes/transactions');
 const { StatusCodes } = require('http-status-codes');
+
 const EmailService = require('../services/EmailService');
 const emailService = new EmailService(process.env.DOMAIN);
 const censorString = require('../utils/censorString');
+
 const {
     userRegisterSchema,
     userLoginSchema,
@@ -234,7 +238,7 @@ const createTransfer = async (req, res) => {
     const createdTransfer = await Transaction.create(transaction);
     if (!createdTransfer) {
         // Report unsuccessful transaction insert to DB
-        logger.error({
+        transactionsLogger.error({
             message: 'DB_TRANSACTION_INSERT_ERROR',
             transaction: transaction
         });

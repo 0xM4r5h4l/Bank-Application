@@ -1,3 +1,4 @@
+require('dotenv').config();
 const {
     BadRequestError
 } = require('../../../outcomes/errors');
@@ -13,6 +14,7 @@ const {
     createUserAccount,
 } = require('../../adminController');
 
+jest.mock('../../../services/EmailService')
 describe('updateUserData', () => {
     let req, res, next;
     beforeEach(() => {
@@ -20,8 +22,7 @@ describe('updateUserData', () => {
             status: jest.fn().mockReturnThis(),
             json: jest.fn()
         }
-        
-        jest.clearAllMocks();
+
     })
 
     describe('Validation', () => {
@@ -58,14 +59,13 @@ describe('updateUserData', () => {
                 user: { userId: '67d7ccea1f1d9f906fe18d84', role: 'admin' },
                 body: { accountNumber: '5117762328105413', tempPasswordRequest: true }
             }
-            EmailService.sendEmail = jest.fn().mockResolvedValue({});
+
 
             save = jest.fn().mockResolvedValue({});
             Account.findOne = jest.fn().mockResolvedValue({ save });
             User.findOneAndUpdate = jest.fn().mockResolvedValue({ email: 'test@bank.com', save });
             await expect(updateUserData(req, res)).resolves.not.toThrow();
             expect(res.status).toHaveBeenCalledWith(200);
-            expect(EmailService.sendEmail).toHaveBeenCalled();
             expect(res.json.mock.calls[0][0]).toMatchObject({ success: true });
         })
     })

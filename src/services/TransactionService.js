@@ -1,10 +1,12 @@
-const securityLogger  = require('../utils/securityLogger');
+const logger = require('../utils/logManager');
+const auditLogger  = logger.get('audit');
 const Account = require('../models/Account');
+
 const { ACCOUNT_BALANCE_RANGE } = require('../validations/rules/database/accountRules');
 
 class TransactionLogger {
     static async logProcessing(transaction) {
-        securityLogger.info({
+        auditLogger.info({
             message: 'PROCESSING_TRANSACTION',
             transactionId: transaction._id,
             transactionType: transaction.transactionType,
@@ -17,7 +19,7 @@ class TransactionLogger {
     }
 
     static async logSuccess(transaction) {
-        securityLogger.info({
+        auditLogger.info({
             message: 'SUCCESSFUL_TRANSACTION',
             transactionId: transaction._id,
             transactionType: transaction.transactionType,
@@ -30,7 +32,7 @@ class TransactionLogger {
     }
 
     static async logFailed(reason, transaction) {
-        securityLogger.info({
+        auditLogger.info({
             message: 'FAILED_TRANSACTION',
             reason: reason || 'Unknown',
             transactionId: transaction._id,
