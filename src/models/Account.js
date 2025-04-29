@@ -34,6 +34,23 @@ const AccountSchema = new mongoose.Schema({
         min: [accountRules.ACCOUNT_BALANCE_RANGE.min, 'Balance is below the minimum allowed value'],
         max: [accountRules.ACCOUNT_BALANCE_RANGE.max, 'Balance exceeds the maximum allowed value']
     },
+    dailyStats: {
+        deposit: {
+            type: Number,
+            default: 0,
+            min: [0, 'Deposit amount cannot be negative']
+        },
+        withdrawal: {
+            type: Number,
+            default: 0,
+            min: [0, 'Withdrawal amount cannot be negative']
+        },
+        transfer: {
+            type: Number,
+            default: 0,
+            min: [0, 'Transfer amount cannot be negative']
+        },
+    },
     status: {
         type: String,
         enum: accountRules.ACCOUNT_STATUS.values,
@@ -51,16 +68,6 @@ const AccountSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
-
-AccountSchema.statics.getAccountsByUserId = async function(userId) {
-    try {
-        const accounts = await this.find({ accountHolderId: userId });
-        if (accounts.length === 0) return null;
-        return accounts;
-    } catch (error) {
-        throw new Error('Error fetching accounts by user ID: ' + error.message);
-    }
-};
 
 AccountSchema.statics.checkAccountExists = async function(accountNumber) {
     try {
@@ -90,10 +97,34 @@ AccountSchema.statics.accountWithdraw = async function(accountNumber, amount) {
     );
 
     if (!result) {
-        throw new Error('WITHDRAW_FAILED_INSUFFICIENT_BALANCE');
+        return null; // No account found or insufficient balance
     } 
 
     return result;
+}
+
+AccountSchema.statics.accountTransfer = async function(accountNumber, toAccount, amount) {
+    const withdrawResult = await this.findOneAndUpdate(
+        {
+            accountNumber,
+            balance: { $gte: amount }, // Ensure sufficient balance
+        },
+        { $inc: { balance: -amount , 'dailyStats.transfer': amount } },
+        { new: true }
+    );
+
+    const depositResult = await this.findOneAndUpdate(
+        {
+            accountNumber: toAccount,
+            balance: { $lte: accountRules.ACCOUNT_BALANCE_RANGE.max - amount },
+        },
+        { $inc: { balance: amount , 'dailyStats.deposit': amount } },
+        { new: true }
+    );
+    
+    console.log(withdrawResult, depositResult);
+
+    return { withdrawResult, depositResult };
 }
 
 AccountSchema.statics.accountDeposit = async function(accountNumber, amount) {
@@ -106,13 +137,9 @@ AccountSchema.statics.accountDeposit = async function(accountNumber, amount) {
         { new: true }
     );
     
+
     if (!result) {
-        const accountExists = await this.exists({ accountNumber });
-        if (!accountExists){
-            throw new Error('DEPOSIT_FAILED_ACCOUNT_NOT_FOUND');
-        } else {
-            throw new Error('DEPOSIT_FAILED_MAX_BALANCE_EXCEEDED');
-        }
+        return null; // No account found or balance exceeds limit
     }
 
     return result;

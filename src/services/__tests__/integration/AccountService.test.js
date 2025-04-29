@@ -25,7 +25,7 @@ describe('AccountService', () => {
 
         afterAll(async () => {
             await User.findOneAndDelete({ email: 'jdoe@test.com' });
-            //await Account.findOneAndDelete({ balance: 1 });
+            await Account.findOneAndDelete({ balance: 1 });
             await mongoose.disconnect();
         })
 

@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const transactionRules  = require('../validations/rules/database/transactionRules');
 
-const transactionSchema = new mongoose.Schema({
+const TransactionSchema = new mongoose.Schema({
     accountNumber: {
         type: String,
         ref: 'Account',
@@ -56,18 +56,18 @@ const transactionSchema = new mongoose.Schema({
 });
 
 // Add method to validate transaction amount
-transactionSchema.methods.validateAmount = async function () {
+TransactionSchema.methods.validateAmount = async function () {
     if (this.amount <= 0) {
         throw new Error('Transaction amount must be greater than zero.');
     }
 };
 
 // Add static method to find transactions by account number
-transactionSchema.statics.findByAccountNumber = async function (accountNumber) {
+TransactionSchema.statics.findByAccountNumber = async function (accountNumber) {
     return await this.find({
         accountNumber
     });
 };
 
 
-module.exports = mongoose.model('Transaction', transactionSchema);
+module.exports = mongoose.model('Transaction', TransactionSchema);

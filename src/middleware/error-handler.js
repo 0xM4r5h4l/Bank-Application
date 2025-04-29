@@ -1,10 +1,19 @@
 require('dotenv').config();
 const { StatusCodes } = require('http-status-codes');
+const { CustomAPIError } = require('../outcomes/errors');
 
 const errorHandlerMiddleware = (err, req, res, next) => {
-    let customError = {
-        statusCode: err.statusCode || StatusCodes.INTERNAL_SERVER_ERROR,
-        msg: err.message || 'Something went wrong, please try again later'
+    let customError = {};
+    if (err instanceof CustomAPIError) {
+        customError = {
+            statusCode: err.statusCode || StatusCodes.INTERNAL_SERVER_ERROR,
+            msg: err.message || 'Something went wrong, please try again later'
+        }
+    } else {
+        customError = {
+            statusCode: err.statusCode || StatusCodes.INTERNAL_SERVER_ERROR,
+            msg: 'Something went wrong, please try again later'
+        }
     }
 
     if (err.name === 'ValidationError') {

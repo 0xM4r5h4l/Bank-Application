@@ -1,12 +1,17 @@
 require('dotenv').config();
 require('express-async-errors');
+
 const express = require('express');
 const app = express();
+
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const requestIp = require('request-ip');
 const notFoundMiddleware = require('./middleware/not-found');
 const errorHandlerMiddleware = require('./middleware/error-handler');
+
+const initializeCronJobs = require('./config/cron');
+initializeCronJobs(); // Initialize all cron jobs
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));

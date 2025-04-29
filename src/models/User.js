@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const userRules  = require('../validations/rules/database/userRules');
 const { randomUUID } = require('crypto');
 
-const UserSchema = mongoose.Schema({
+const UserSchema = new mongoose.Schema({
     firstName: {
         type: String,
         required: [true, 'First name is required'],
@@ -202,7 +202,7 @@ UserSchema.statics.validateVerificationToken = async function(token) {
     if (!token) return false;
     const user = await this.findOne({ 'security.verificationToken.token': token });
     if (!user) return false;
-
+    
     const now = Date.now();
     if (now > user.security.verificationToken.expires) {
         return false;
@@ -212,7 +212,7 @@ UserSchema.statics.validateVerificationToken = async function(token) {
     user.security.verificationToken.token = undefined;
     user.security.verificationToken.expires = undefined;
     await user.save();
-    return true;
+    return user.toObject();
 }
 
 UserSchema.methods.getVerificationTokenState = async function() {

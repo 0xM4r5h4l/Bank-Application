@@ -32,9 +32,9 @@ describe('userRegister', () => {
                 address: '1 nozha st, giza',
                 phoneNumber: '+201199005678',
                 dateOfBirth: '1-1-1990',
-                toObject: function() { return {...this} },
-                createUserJWT: function() { return { token: 'fake-jwt-token' } },
-                createVerificationToken: function() { return { token: 'fake-verification-token' } },
+                toObject: function() { return { ...this } },
+                createUserJWT: function() { return 'fake-jwt-token' },
+                createVerificationToken: function() { return 'fake-verification-token' },
             }
         };
         res = { 

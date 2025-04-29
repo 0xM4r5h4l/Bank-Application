@@ -29,13 +29,13 @@ class EmailService {
     }
 
     async sendVerificationEmail(email, fname, token) {
-        const { subject, body } = EmailTemplate.getVerificationEmailTemplate(fname, this.domain, this.USER_VERIFICATION_TOKEN_EXPIRY, token);
+        const { subject, body } = await EmailTemplate.getVerificationEmailTemplate(fname, this.domain, this.USER_VERIFICATION_TOKEN_EXPIRY, token);
         return await this.sendEmail(email, subject, body);
     }
 }
 
 class EmailTemplate {
-    static getVerificationEmailTemplate(fname, domain, expiry, token) {
+    static async getVerificationEmailTemplate(fname, domain, expiry, token) {
         const subject = 'Verify Your Email Address';
         const body = `Dear ${fname},\n\nPlease click the link below to verify your email address. This link will expire in ${expiry} minutes:\n\n${domain}/user/verify/${token}\n\nThank you for choosing our service.\n\nBest regards,\nThe Team`;
         return { subject, body };

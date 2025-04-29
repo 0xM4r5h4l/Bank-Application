@@ -1,160 +1,195 @@
-const logger = require('../utils/logManager');
-const auditLogger  = logger.get('audit');
-const Account = require('../models/Account');
-
 const { ACCOUNT_BALANCE_RANGE } = require('../validations/rules/database/accountRules');
+const Account = require('../models/Account');
+const Transaction = require('../models/Transaction');
+const transactionRules = require('../validations/rules/database/transactionRules');
 
-class TransactionLogger {
-    static async logProcessing(transaction) {
-        auditLogger.info({
-            message: 'PROCESSING_TRANSACTION',
-            transactionId: transaction._id,
-            transactionType: transaction.transactionType,
-            source: transaction.accountNumber,
-            destination: transaction.toAccount || 'Unknown',
-            amount: transaction.amount,
-            date: transaction.transactionDate,
-            category: 'transactions'
-        });
-    }
-
-    static async logSuccess(transaction) {
-        auditLogger.info({
-            message: 'SUCCESSFUL_TRANSACTION',
-            transactionId: transaction._id,
-            transactionType: transaction.transactionType,
-            source: transaction.accountNumber,
-            destination: transaction.toAccount || 'Unknown',
-            amount: transaction.amount,
-            date: transaction.transactionDate,
-            category: 'transactions'
-        });
-    }
-
-    static async logFailed(reason, transaction) {
-        auditLogger.info({
-            message: 'FAILED_TRANSACTION',
-            reason: reason || 'Unknown',
-            transactionId: transaction._id,
-            transactionType: transaction.transactionType,
-            source: transaction.accountNumber,
-            destination: transaction.toAccount || 'Unknown',
-            amount: transaction.amount,
-            date: transaction.transactionDate,
-            category: 'transactions'
-        });
-    }
-}
 
 class TransactionValidator {
-    static async validate(transaction) {
-        try{
-            if (!transaction || typeof transaction.accountNumber !== 'string' || typeof transaction.amount !== 'number' || transaction.amount <= 0 || transaction.description?.length > 20) {
-                return { clientMessage: 'Invalid transaction data, transaction rejected', systemMessage: 'Invalid transaction data', status: false };
-            }
+    constructor() {
+        this.ACCOUNT_BALANCE_RANGE = ACCOUNT_BALANCE_RANGE;
+        this.transactionRules = transactionRules;
+        this.transferDescriptionRule = transactionRules.TRANSFER_DESCRIPTION;
+    }
 
-            const sourceAccountBalance = await Account.checkAccountBalance(transaction.accountNumber);
-            if (sourceAccountBalance === null) {
-                return { clientMessage: 'Invalid transaction data, transaction rejected', systemMessage: 'Invalid transaction data(accountNumber)', status: false };
-            }
-
-            if(transaction.transactionType === 'transfer'){
-                if (sourceAccountBalance < transaction.amount) {
-                    return { clientMessage: 'Insufficient balance, transaction rejected', systemMessage: 'Insufficient balance', status: false };
-                }
-
-                const destinationAccountBalance = await Account.checkAccountBalance(transaction.toAccount);
-
-                if(destinationAccountBalance === null) {
-                    return { clientMessage: 'Invalid transaction data, transaction rejected', systemMessage: 'Invalid transaction data(toAccount)', status: false };
-                } else if ((destinationAccountBalance + transaction.amount) > ACCOUNT_BALANCE_RANGE.max) {
-                    return { clientMessage: 'Transaction not allowed', systemMessage: 'Destination account balance can\'t exceed the maximum allowed balance', status: false };
-                }
-            }
-
-            if(transaction.transactionType ===  'withdrawal'){
-                if (sourceAccountBalance < transaction.amount) {
-                    return { clientMessage: 'Insufficient balance, transaction rejected', systemMessage: 'Insufficient balance', status: false };
-                }
-            }
-
-            if(transaction.transactionType ===  'deposit'){
-                if ((sourceAccountBalance + transaction.amount) > ACCOUNT_BALANCE_RANGE.max) {
-                    return { clientMessage: 'Your account balance has reached the maximum limit, transaction rejected', systemMessage: 'Account balance can\'t exceed the maximum allowed balance', status: false };
-                }
-            }
-
-            return { clientMessage: 'Transaction successful', systemMessage: 'Transaction Success', status: true };
-        } catch (error) {
-            return { clientMessage: 'Something went wrong while processing your transaction', systemMessage: `Error: ${error.message || 'Unknown error'}`, status: false };
+    async validateTransfer(transactionData) {
+        if (!transactionData || typeof transactionData.accountNumber !== 'string' 
+            || typeof transactionData.toAccount !== 'string'
+            || typeof transactionData.amount !== 'number' || transactionData.amount <= 0
+            || transactionData?.description?.length > this.transactionRules.TRANSFER_DESCRIPTION.max) {
+            return { error: { unprocessableEntityError: false, message: 'Invalid transaction data, transaction not processed.' } };
         }
+        
+        const sourceAccount = await Account.findOne({ accountNumber: transactionData.accountNumber });
+        const destinationAccount = await Account.findOne({ accountNumber: transactionData.toAccount });
+        if (!sourceAccount) {
+            return { error: { unprocessableEntityError: false, message: 'Invalid transaction data, transaction not processed.' } };
+        }
+        if (!destinationAccount) {
+            return { error: { unprocessableEntityError: true, message: 'Invalid destination account' } };
+        }
+        if (sourceAccount.balance < transactionData.amount) {
+            return { error: { unprocessableEntityError: true, message: 'Insufficient funds for this transaction.' } };
+        }
+        if ( destinationAccount.balance + transactionData.amount > this.ACCOUNT_BALANCE_RANGE.max) {
+            return { error: { unprocessableEntityError: true, message: 'Destination account balance exceeds the maximum allowed value.' } };
+        }
+        if (sourceAccount.accountNumber === destinationAccount.accountNumber) {
+            return { error: { unprocessableEntityError: true, message: 'Source and destination accounts are the same.' } };
+        }
+        if (sourceAccount.status !== 'Active' || destinationAccount.status !== 'Active') {
+            return { error: { unprocessableEntityError: true, message: 'Source or destination account is not active.' } };
+        }
+        if (transactionData.amount < transactionRules.TRANSFER_RULES.min || transactionData.amount > transactionRules.TRANSFER_RULES.max) {
+            return { error: { unprocessableEntityError: true, message: 'Transfer amount is out of range.' } };
+        }
+        if (sourceAccount?.dailyStats?.transfer + transactionData.amount > transactionRules.TRANSFER_RULES.dailyLimit) {
+            return { error: { unprocessableEntityError: true, message: 'Transfer amount exceeds daily limit for source account.' } };
+        }
+        if (destinationAccount?.dailyStats?.deposit + transactionData.amount > transactionRules.TRANSFER_RULES.dailyLimit) {
+            return { error: { unprocessableEntityError: false, message: 'Destination account will exceed the max deposit limit.' } };
+        }
+        if (sourceAccount.accountHolderId === destinationAccount.accountHolderId) {
+            return { error: { unprocessableEntityError: true, message: 'Source and destination accounts belong to the same user.' } };
+        }
+        return true;
+    }
+
+    async validateDeposit(transactionData) {
+        if (!transactionData || typeof transactionData.accountNumber !== 'string' 
+            || typeof transactionData.amount !== 'number' || transactionData.amount <= 0
+            || transactionData?.description?.length > this.transactionRules.TRANSFER_DESCRIPTION.max) {
+            return { error: { unprocessableEntityError: false, message: 'Invalid transaction data, transaction not processed.' } };
+        }
+
+        const account = await Account.findOne({ accountNumber: transactionData.accountNumber });
+        if (!account) {
+            return { error: { unprocessableEntityError: false, message: 'Invalid transaction data, transaction not processed.' } };
+        }
+        if (account.balance + transactionData.amount > this.ACCOUNT_BALANCE_RANGE.max) {
+            return { error: { unprocessableEntityError: true, message: 'Account balance exceeds the maximum allowed value.' } };
+        }
+        if (account.status !== 'Active') {
+            return { error: { unprocessableEntityError: true, message: 'Account is not active.' } };
+        }
+        if (transactionData.amount < transactionRules.DEPOSIT_RULES.min || transactionData.amount > transactionRules.DEPOSIT_RULES.max) {
+            return { error: { unprocessableEntityError: true, message: 'Deposit amount is out of range.' } };
+        }
+        if (account.dailyStats.deposit + transactionData.amount > transactionRules.DEPOSIT_RULES.dailyLimit) {
+            return { error: { unprocessableEntityError: true, message: 'Deposit amount exceeds daily limit.' } };
+        }
+
+        return true;
+    }
+
+    async validateWithdraw(transactionData) {
+        if (!transactionData || typeof transactionData.accountNumber !== 'string' 
+            || typeof transactionData.amount !== 'number' || transactionData.amount <= 0
+            || transactionData?.description?.length > this.transactionRules.TRANSFER_DESCRIPTION.max) {
+            return { error: { unprocessableEntityError: false, message: 'Invalid transaction data, transaction not processed.' } };
+        }
+
+        const account = await Account.findOne({ accountNumber: transactionData.accountNumber });
+        if (!account) {
+            return { error: { unprocessableEntityError: false, message: 'Invalid transaction data, transaction not processed.' } };
+        }
+        if (account.balance < transactionData.amount) {
+            return { error: { unprocessableEntityError: true, message: 'Insufficient funds for this transaction.' } };
+        }
+        if (account.status !== 'Active') {
+            return { error: { unprocessableEntityError: true, message: 'Account is not active.' } };
+        }
+        if (transactionData.amount < transactionRules.WITHDRAW_RULES.min || transactionData.amount > transactionRules.WITHDRAW_RULES.max) {
+            return { error: { unprocessableEntityError: true, message: 'Withdraw amount is out of range.' } };
+        }
+        if (account.dailyStats.withdrawal + transactionData.amount > transactionRules.WITHDRAW_RULES.dailyLimit) {
+            return { error: { unprocessableEntityError: true, message: 'Withdraw amount exceeds daily limit.' } };
+        }
+
+        return true;
     }
 }
 
 class TransactionService {
-    async processTransaction(transaction) {
-        try {
-            // Logs the transaction processing
-            await TransactionLogger.logProcessing(transaction);
-
-            // Validate the transaction
-            const { clientMessage, systemMessage, status } = await TransactionValidator.validate(transaction);
-            if ( status === true ) {
-                await this.#handleTransaction(transaction);
-
-                // Log the transaction success
-                await TransactionLogger.logSuccess(transaction);
-                return { clientMessage: clientMessage, systemMessage: systemMessage, status: 'successful' };
-            } else {
-                await TransactionLogger.logFailed(systemMessage, transaction);
-                return { clientMessage: clientMessage, systemMessage: systemMessage, status: 'failed' };
-            }
-
-        } catch (error) {
-            await TransactionLogger.logFailed(error.message || 'Error while processing transaction', transaction);
-            error.message = error.message || 'System error while processing transaction';
-            throw error;
-        }
+    constructor() {
+        this.transactionValidator = new TransactionValidator();
     }
 
-    async #handleTransaction(transaction) {
-        try {
-            if( transaction.transactionType === 'transfer' ) {
-                const sourceAccountWithdrawal = await Account.accountWithdraw(transaction.accountNumber, transaction.amount);
-                if (!sourceAccountWithdrawal) {
-                    throw new Error('Error withdrawing from source account');
-                }
-                const destinationAccountDeposit = await Account.accountDeposit(transaction.toAccount, transaction.amount);
-                if (!destinationAccountDeposit) {
-                    throw new Error('Error depositing to destination account');
-                }
-                if (sourceAccountWithdrawal && !destinationAccountDeposit) {
-                    const sourceAccountDeposit = await Account.accountDeposit(transaction.accountNumber, transaction.amount);
-                    if (!sourceAccountDeposit) {
-                        throw new Error('Transfer failed but couldn\'t deposit back to source account');
-                    }
-                }
-                if (sourceAccountWithdrawal && destinationAccountDeposit) {
-                    return true;
-                }
-            }
-            if( transaction.transactionType === 'withdrawal' ) {
-                const sourceAccountWithdrawal = await Account.accountWithdraw(transaction.accountNumber, transaction.amount);
-                if (!sourceAccountWithdrawal) {
-                    throw new Error('Error withdrawing from source account');
-                }
-            }
-            if( transaction.transactionType === 'deposit' ) {
-                const sourceAccountWithdrawal = await Account.accountDeposit(transaction.accountNumber, transaction.amount);
-                if (!sourceAccountWithdrawal) {
-                    throw new Error('Error withdrawing from source account');
-                }
-            }
-        } catch (error) {
-            throw new Error('Error handling transfer: ' + error.message);
+    async recordTransaction(transactionData, transactionStatus, transactionType, systemReason) {
+        if (!transactionData || !transactionStatus || !transactionType) {
+            return { error: { unprocessableEntityError: false, message: 'transactionData, transactionStatus and transactionType must be provided in TransactionService.recordTransaction .' } };
         }
+        
+        transactionData.status = transactionStatus;
+        transactionData.transactionType = transactionType;
+        transactionData.systemReason = systemReason || null;
+        transactionData.transactionDate = new Date();
+        const transaction = await Transaction.create({ ...transactionData });
+        if (!transaction) return { error: { unprocessableEntityError: false, message: 'Transaction creation failed' } };
+        
+        return { recordSuccess: true };
     }
 
+    async doTransfer(transactionData) {
+        const validate = await this.transactionValidator.validateTransfer(transactionData);
+        if (!validate) {
+            return { error: { unprocessableEntityError: false, message: 'Invalid transaction data, transaction not processed.' } };
+        }
+        if (validate.error) {
+            return validate;
+        }
+
+        const sourceAccount = await Account.findOne({ accountNumber: transactionData.accountNumber });
+        const destinationAccount = await Account.findOne({ accountNumber: transactionData.toAccount});
+        if (!sourceAccount || !destinationAccount) {
+            return  { error: { unprocessableEntityError: false, message: 'Error while finding sourceAccount & destinationAccount' } };
+        }
+
+        const { withdrawResult, depositResult } = await Account.accountTransfer(transactionData.accountNumber, transactionData.toAccount, transactionData.amount);
+        if (!withdrawResult) {
+            return { error: { unprocessableEntityError: false, message: 'Error while withdrawing from source account' } };
+        }
+        if (!depositResult) {
+            return { error: { unprocessableEntityError: false, message: 'Error while depositing to destination account' } };
+        }
+        console.log('withdraw', withdrawResult);
+        console.log('deposit', depositResult);
+
+        return { success: true };
+    }
+
+    async doDeposit(transactionData) {
+        const validate = await this.transactionValidator.validateDeposit(transactionData);
+        if (!validate) {
+            return { error: { unprocessableEntityError: false, message: 'Invalid transaction data, transaction not processed.' } };            
+        }
+        if (validate.error) {
+            return validate;
+        }
+
+        const deposit = await Account.accountDeposit(transactionData.accountNumber, transactionData.amount);
+        if (!deposit) {
+            return { error: { unprocessableEntityError: false, message: 'Error while depositing to destination account' } };
+        }
+
+        return { success: true };
+    }
+
+    async doWithdraw(transactionData) {
+        const validate = await this.transactionValidator.validateWithdraw(transactionData);
+        if (!validate) {
+            return { error: { unprocessableEntityError: false, message: 'Invalid transaction data, transaction not processed.' } };
+        }
+        if (validate.error) {
+            return validate;
+        }
+
+        const withdraw = await Account.accountWithdraw(transactionData.accountNumber, transactionData.amount);
+        if (!withdraw) {
+            return { error: { unprocessableEntityError: false, message: 'Error while withdrawing from source account' } };
+        }
+
+        return { success: true };
+    }
 }
 
 module.exports = TransactionService;

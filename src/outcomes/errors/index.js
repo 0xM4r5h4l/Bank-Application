@@ -6,6 +6,7 @@ const ForbiddenError = require('./forbidden');
 const TooManyRequestsError = require('./too_many_requests');
 const InternalServerError = require('./internal-server-error');
 const ConflictError = require('./conflict');
+const UnprocessableEntityError = require('./unprocessable-entity');
 
 
 module.exports = {
@@ -16,5 +17,6 @@ module.exports = {
     ForbiddenError,
     TooManyRequestsError,
     InternalServerError,
-    ConflictError
+    ConflictError,
+    UnprocessableEntityError
 }
