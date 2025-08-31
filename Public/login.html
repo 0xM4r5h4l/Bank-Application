@@ -8,39 +8,33 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
-<body class="bg-[#D1D9E0] dark:bg-gradient-to-br dark:from-cyan-900 dark:to-cyan-950 text-white dark:text-[#EEEEEE]">
+<body class="bg-[#f8f6f5] dark:bg-gradient-to-br dark:from-cyan-900 dark:to-cyan-950 text-white dark:text-[#EEEEEE]">
     <header class="w-full hidden md:inline">
-        <nav class=" w-full bg-gradient-to-r from-blue-500 to-blue-600 dark:from-cyan-900 dark:to-cyan-950 dark:bg-cyan-950 p-2.5">
-            <div class="flex justify-center items-center pt-3">
+        <nav class="w-full bg-gradient-to-r from-blue-500 to-blue-600 dark:from-cyan-900 dark:to-cyan-950 dark:bg-cyan-950 p-2.5">
+            <div class="flex justify-center items-center">
                 <div class="hidden sm:flex justify-center basis-1/4 flex-col ml-5">
-                    <h1 class="font-bold hidden text-2xl sm:inline md:text-2xl lg:text-3xl xl:text-4xl">United Bank</h1>
+                    <h1 class="font-bold hidden text-2xl sm:inline md:text-2xl lg:text-3xl xl:text-4xl">Beacon Bank</h1>
                     <p class="hidden md:inline text-xs lg:text-xs xl:text-sm">Banking Just Got Easier</p>
                 </div>
                 <div class="flex basis-3/4 justify-end lg:mr-5">
-                    <div class="flex flex-row justify-center items-center font-semibold text-l">
-                        <div class="flex items-center justify-center h-full px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 dark:hover:bg-gray-500 dark:hover:bg-opacity-10 hover:bg-black hover:bg-opacity-10"><a href="#" class="flex flex-col items-center justify-center"><i class="fa-solid fa-house text-3xl"></i><span>Home</span></a></div>
-                        <div class="flex items-center justify-center h-full px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 dark:hover:bg-gray-500 dark:hover:bg-opacity-10 hover:bg-black hover:bg-opacity-10"><a href="#" class="flex flex-col items-center justify-center"><i class="fa-solid fa-user text-3xl"></i><span>Login</span></a></div>
-                        <div class="flex items-center justify-center h-full px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 dark:hover:bg-gray-500 dark:hover:bg-opacity-10 hover:bg-black hover:bg-opacity-10"><a href="#" class="flex flex-col items-center justify-center"><i class="fa-solid fa-user-plus text-3xl"></i><span>Register</span></a></div>
+                    <div class="flex flex-row justify-center items-center font-semibold text-l ">
+                        <div class="flex items-center justify-center h-full px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 dark:hover:bg-gray-500 dark:hover:bg-opacity-10 hover:bg-black hover:bg-opacity-10"><a href="index.html" class="flex flex-col items-center justify-center"><i class="fa-solid fa-house text-xl xl:text-2xl"></i><span>Home</span></a></div>
+                        <div class="flex items-center justify-center h-full px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 dark:hover:bg-gray-500 dark:hover:bg-opacity-10 hover:bg-black hover:bg-opacity-10"><a href="login.html" class="flex flex-col items-center justify-center"><i class="fa-solid fa-user text-xl xl:text-2xl"></i><span>Login</span></a></div>
+                        <div class="flex items-center justify-center h-full px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 dark:hover:bg-gray-500 dark:hover:bg-opacity-10 hover:bg-black hover:bg-opacity-10"><a href="register.html#register" class="flex flex-col items-center justify-center"><i class="fa-solid fa-user-plus text-xl xl:text-2xl"></i><span>Register</span></a></div>
                     </div>
                 </div>
             </div>
         </nav>
     </header>
-    <section class="flex flex-col items-center justify-center min-h-[100vh] md:min-h-[calc(100vh-4rem)] p-4 sm:p-8 lg:p-12 bg-white dark:bg-gradient-to-br dark:from-cyan-900 dark:to-cyan-700 text-black dark:text-white">
-        <div class="w-full max-w-lg rounded-xl p-8 sm:p-10 shadow-2xl dark:bg-cyan-900">
-            <h1 class="text-md sm:text-2xl block text-center font-semibold"><i class="fa-solid fa-user mx-3"></i>Login to Your Account</h1>
-            <hr class="mt-2 sm:mt-7">
+    <section class="flex flex-col items-center justify-center min-h-[100vh] md:min-h-[calc(100vh-4rem)] p-4 sm:p-8 lg:p-12 bg-[#f8f6f5] dark:bg-gradient-to-t dark:to-cyan-700 dark:from-cyan-900 text-black dark:text-white">
+        <div class="w-full max-w-lg rounded-xl p-8 sm:p-10 shadow-2xl bg-[#e2e2e1] dark:bg-cyan-900">
+            <h1 class="font-semibold text-md sm:text-2xl block text-center"><i class="fa-solid fa-user mx-3"></i>Login to Your Account</h1>
+            <hr class="mx-auto mt-2 sm:mt-7 border-transparent">
             <form action="/api/v1/user/login" method="POST" class="flex flex-col justify-center items-center space-y-1">
-                <input type="text" id="username" class="border w-[55vh] sm:w-full mb-1 px-2 py-2 focus:outline-none focus:ring-0 focus:border-gray-600" name="username" placeholder="Enter Username..." required><br>
-                <input type="password" id="password" class="border w-[55vh] sm:w-full px-2 py-2 focus:outline-none focus:ring-0 focus:border-gray-600" name="password" placeholder="Enter Password..." required><br><br>
-                <div class="flex justify-between items-center mt-2 mb-6 w-[55vh] sm:w-full">
-                    <div>
-                        <input type="checkbox" id="remember" name="remember">
-                        <label for="remember">Remember Me</label>
-                    </div>
-                    <div>
+                <input type="text" id="email" class="font-normal border rounded-md w-[55vh] sm:w-full mb-0.5 px-2 py-2 focus:outline-none focus:ring-0 focus:border-gray-600 text-black" name="email" placeholder="Enter E-Mail..." required><br>
+                <input type="password" id="password" class="font-normal border rounded-md w-[55vh] sm:w-full px-2 py-2 focus:outline-none focus:ring-0 focus:border-gray-600 text-black" name="password" placeholder="Enter Password..." required><br><br>
+                <div class="flex justify-end items-center mt-2 mb-6 w-[55vh] sm:w-full">
                         <a href="#">Forgot Password?</a>
-                    </div>
                 </div>
                 <div class="flex justify-center items-center">
                     <button class="border-2 dark:border-cyan-700 dark:bg-cyan-700 border-blue-500 bg-blue-500 hover:bg-transparent hover:text-black dark:hover:text-white dark:hover:bg-cyan-600 text-white py-2 px-8 rounded-md font-semibold" type="submit">Login</button>

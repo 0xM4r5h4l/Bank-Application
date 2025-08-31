@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body class="w-full h-full justify-center items-center bg-[#f8f6f5] dark:bg-gradient-to-b dark:from-cyan-900 dark:to-cyan-950 text-white dark:text-[#EEEEEE] transition-colors">
+    <header class="h-full w-full hidden md:inline">
+        <nav class="w-full bg-gradient-to-r from-blue-500 to-blue-600 dark:from-cyan-900 dark:to-cyan-950 dark:bg-cyan-950 p-2.5">
+            <div class="flex justify-center items-center">
+                <div class="hidden sm:flex justify-center basis-1/4 flex-col ml-5">
+                    <h1 class="font-bold hidden text-2xl sm:inline md:text-2xl lg:text-3xl xl:text-4xl">Beacon Bank</h1>
+                    <p class="hidden md:inline text-xs lg:text-xs xl:text-sm">Banking Just Got Easier</p>
+                </div>
+                <div class="flex basis-3/4 justify-end lg:mr-5">
+                    <div class="flex flex-row justify-center items-center font-semibold text-l">
+                        <div class="flex items-center justify-center h-full px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 dark:hover:bg-gray-500 dark:hover:bg-opacity-10 hover:bg-black hover:bg-opacity-10"><a href="index.html" class="flex flex-col items-center justify-center"><i class="fa-solid fa-house text-xl xl:text-2xl"></i><span>Home</span></a></div>
+                        <div class="flex items-center justify-center h-full px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 dark:hover:bg-gray-500 dark:hover:bg-opacity-10 hover:bg-black hover:bg-opacity-10"><a href="login.html#email" class="flex flex-col items-center justify-center"><i class="fa-solid fa-user text-xl xl:text-2xl"></i><span>Login</span></a></div>
+                        <div class="flex items-center justify-center h-full px-2 sm:px-3 md:px-4 lg:px-5 xl:px-6 dark:hover:bg-gray-500 dark:hover:bg-opacity-10 hover:bg-black hover:bg-opacity-10"><a href="register.html#register" class="flex flex-col items-center justify-center"><i class="fa-solid fa-user-plus text-xl xl:text-2xl"></i><span>Register</span></a></div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <section id="register" class="flex flex-row items-center justify-between min-h-[calc(100vh-4rem)] mb-10 mx-10 mt-5">
+        <div class="w-60/100 pb-10 px-10 pt-3 bg-white rounded-lg shadow-xl dark:bg-cyan-950">
+            <div>
+                <h1 class="text-xl lg:text-2xl xl:text-3xl text-black dark:text-white">Registration</h1>
+                <hr class="mt-4 border-transparent">
+                <form action="/api/v1/user/login" method="POST" class="text-black">
+                    <input type="text" name="firstname" class="p-2 w-full border border-gray-300 rounded-md text-gray-700 mb-2" placeholder="Firstname" minlength="2" maxlength="50" pattern="^[A-Za-z-\s']+$" required>
+                    <input type="text" name="lastname" class="p-2 w-full border border-gray-300 rounded-md text-gray-700 mb-2" placeholder="Lastname" minlength="2" maxlength="50" pattern="^[A-Za-z-\s']+$" required>
+                    <input type="email" name="email" class="p-2 w-full border border-gray-300 rounded-md text-gray-700 mb-2" placeholder="Email" required>
+                    <div class="flex flex-row justify-between mb-2">
+                        <input type="password" name="password" class="p-2 border border-gray-300 rounded-md text-gray-700 mr-0.5 w-full"  placeholder="Password" minlength="8" maxlength="128" required>
+                        <input type="password" name="repeat_password" class="p-2 border border-gray-300 rounded-md text-gray-700 w-full"  placeholder="Repeat Password" minlength="8" maxlength="128" required>
+                    </div>
+                    <input type="text" name="national_id" class="p-2 w-full border border-gray-300 rounded-md text-gray-700 mb-2" placeholder="National ID" minlength="14" maxlength="14" required>
+                    <select name="gender" class="p-2 w-full border border-gray-300 rounded-md text-gray-700 mb-2" required>
+                        <option value="">Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                    </select>
+                    <input type="text" name="faddress" class="p-2 w-full border border-gray-300 rounded-md text-gray-700 mb-2" minlength="5" maxlength="160" placeholder="Address" required>
+                    <input type="text" name="saddress" class="p-2 w-full border border-gray-300 rounded-md text-gray-700 mb-2" minlength="5" maxlength="160" placeholder="Second Address">
+                    <input type="tel" name="phone" class="p-2 w-full border border-gray-300 rounded-md text-gray-700 mb-2" pattern="^(010|011|012|015)[0-9]{8}" placeholder="Phone Number" required>
+                    <input type="date" name="birthdate" class="p-2 w-full border border-gray-300 rounded-md text-gray-700 mb-3" max="{{today}}" placeholder="Phone Number" required>
+                    <p class="font-light text-sm dark:text-gray-300 tracking-tighter">By clicking Sign Up, you agree to our <a href="#" class="text-blue-500">Terms and conditions</a></p>
+                    <button class="w-full p-2 rounded-md transition duration-200 border-2 dark:border-cyan-700 dark:bg-cyan-700 border-blue-500 bg-blue-500 hover:bg-blue-70 dark:hover:text-white dark:hover:bg-cyan-600 text-white py-2 px-8 font-semibold mt-3" type="submit">Sign Up</button>
+                </form>
+            </div>
+        </div>
+        <div class="hidden mt-30 lg:inline w-[500px] xl:w-[1050px]">
+            <img id="hero-image" src="./icons/r_hero_light.png"> 
+        </div>
+    </section>
+    <script>
+        function updateHeroImage() {
+            const heroImage = document.getElementById('hero-image');
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                heroImage.src = 'icons/r_hero_dark.png';
+            } else {
+                heroImage.src = 'icons/r_hero_light.png';
+            }
+        }
+        updateHeroImage();
+        const colorSchemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        colorSchemeMediaQuery.addEventListener('change', updateHeroImage);
+    </script>
+</body>
+</html>

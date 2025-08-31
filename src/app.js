@@ -18,7 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(requestIp.mw());
 
 app.get('/', async (req, res) => {
-    res.status(200).json({ message: 'It\'s up and running', results: { name: 'United Bank' }, success: true });
+    res.status(200).json({ message: 'It\'s up and running', results: { name: 'Beacon Bank' }, success: true });
 })
 
 app.use('/api/v1/user/', userRoutes);

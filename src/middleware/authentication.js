@@ -10,7 +10,7 @@ const authentication = async (req, res, next) => {
     try{
         const token = authHeader.split(' ')[1];
         const payload = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = {userId: payload.userId, fullName: payload.fullName, role: payload.role};
+        req.user = { userId: payload.userId, role: payload.role };
         next();
     } catch(error){
         throw new UnauthenticatedError('Invalid authentication credentials provided.');

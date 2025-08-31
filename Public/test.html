@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration Page</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom dark mode image filter (optional) */
+        body.dark-mode img {
+            filter: brightness(0.8);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gradient-to-b dark:from-cyan-900 dark:to-cyan-950 transition-colors">
+    <div class="flex w-full h-screen justify-center items-center">
+        <!-- Registration Form Section -->
+        <div class="w-3/5 p-10 bg-white rounded-lg shadow-xl dark:bg-cyan-950">
+            <h1 class="text-3xl text-gray-800 dark:text-white mb-6">Register</h1>
+            <form action="#" method="post">
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <input type="text" name="firstname" placeholder="Firstname" class="p-3 border border-gray-300 rounded-md text-gray-700 dark:bg-cyan-800 dark:text-white">
+                    <input type="text" name="lastname" placeholder="Lastname" class="p-3 border border-gray-300 rounded-md text-gray-700 dark:bg-cyan-800 dark:text-white">
+                </div>
+                <input type="email" name="email" placeholder="Email" class="p-3 w-full border border-gray-300 rounded-md text-gray-700 mb-4 dark:bg-cyan-800 dark:text-white">
+        
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <input type="password" name="password" placeholder="Password" class="p-3 border border-gray-300 rounded-md text-gray-700 dark:bg-cyan-800 dark:text-white">
+                    <input type="password" name="repeat_password" placeholder="Repeat Password" class="p-3 border border-gray-300 rounded-md text-gray-700 dark:bg-cyan-800 dark:text-white">
+                </div>
+
+                <input type="text" name="national_id" placeholder="National ID" class="p-3 w-full border border-gray-300 rounded-md text-gray-700 mb-4 dark:bg-cyan-800 dark:text-white">
+                <select name="gender" class="p-3 w-full border border-gray-300 rounded-md text-gray-700 mb-4 dark:bg-cyan-800 dark:text-white">
+                    <option value="">Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                </select>
+
+                <input type="text" name="address" placeholder="Address" class="p-3 w-full border border-gray-300 rounded-md text-gray-700 mb-4 dark:bg-cyan-800 dark:text-white">
+                <input type="text" name="second_address" placeholder="Second Address" class="p-3 w-full border border-gray-300 rounded-md text-gray-700 mb-4 dark:bg-cyan-800 dark:text-white">
+                <input type="tel" name="phone" placeholder="Phone Number" class="p-3 w-full border border-gray-300 rounded-md text-gray-700 mb-4 dark:bg-cyan-800 dark:text-white">
+                <input type="date" name="birthdate" class="p-3 w-full border border-gray-300 rounded-md text-gray-700 mb-4 dark:bg-cyan-800 dark:text-white">
+
+                <button type="submit" class="w-full p-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200">Register</button>
+            </form>
+        </div>
+
+        <!-- Vector Image Section -->
+        <div class="w-2/5 p-10 flex justify-end items-center">
+            <img id="vector-image" src="./icons/r_hero_dark.png" alt="Vector Illustration" class="w-3/4 transition-all duration-500">
+        </div>
+
+    </div>
+
+    <!-- JavaScript to Toggle Dark Mode and Change Image -->
+    <script>
+        // Toggle Dark Mode
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'd') {
+                document.body.classList.toggle('dark');
+                
+                // Change the image source based on dark mode status
+                const vectorImage = document.getElementById('vector-image');
+                if (document.body.classList.contains('dark')) {
+                    vectorImage.src = './icons/r_hero_dark.png'; // Dark mode image
+                } else {
+                    vectorImage.src = './icons/r_hero_light.png'; // Light mode image
+                }
+            }
+        });
+    </script>
+</body>
+</html>

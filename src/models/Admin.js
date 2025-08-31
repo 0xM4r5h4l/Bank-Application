@@ -110,9 +110,8 @@ AdminSchema.methods.createAdminJWT = async function(clientIp) {
     await this.save();
     return jwt.sign({
         userId: this._id,
-        fullName: 'Unknown',
         role: this.role,
-    }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_LIFETIME });
+    }, process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: process.env.JWT_LIFETIME });
 };
 
 module.exports = mongoose.model('Admin', AdminSchema);

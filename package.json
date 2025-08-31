@@ -5,7 +5,7 @@
   "scripts": {
     "setup:dummy-db": "cross-env NODE_ENV=dev node src/setup/test/dummy-db.js",
     "test": "cross-env NODE_ENV=test jest --coverage",
-    "dev": "cross-env NODE_ENV=dev; nodemon ./src/server.js",
+    "dev": "cross-env NODE_ENV=dev nodemon ./src/server.js",
     "production": "node ./src/server.js"
   },
   "keywords": [],
